@@ -1,7 +1,22 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Expand, HelpCircle, Monitor, Network, Power, Router, Server, Wifi, X } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Expand,
+  HelpCircle,
+  Monitor,
+  Network,
+  Power,
+  PowerOff,
+  Router,
+  Server,
+  Shrink,
+  Wifi,
+  type LucideIcon,
+} from 'lucide-react'
 import {
   createDemoDevices,
   formatOfflineDuration,
@@ -13,14 +28,14 @@ import {
   type MonitorDevice,
 } from '@/lib/monitor-data'
 
-const statusMeta: Record<DeviceStatus, { label: string; short: string; color: string; dot: string }> = {
-  normal: { label: '正常', short: '正常', color: 'status-normal', dot: 'bg-emerald-400' },
-  error: { label: '异常', short: '异常', color: 'status-error', dot: 'bg-red-400' },
-  offline: { label: '无影响离线', short: '允许离线', color: 'status-offline', dot: 'bg-slate-400' },
-  unknown: { label: '状态未知', short: '状态未知', color: 'status-unknown', dot: 'bg-amber-400' },
+const statusMeta: Record<DeviceStatus, { label: string; tone: string; icon: LucideIcon }> = {
+  normal: { label: '正常', tone: 'tone-normal', icon: CheckCircle2 },
+  error: { label: '异常', tone: 'tone-error', icon: AlertTriangle },
+  offline: { label: '无影响离线', tone: 'tone-offline', icon: PowerOff },
+  unknown: { label: '状态未知', tone: 'tone-unknown', icon: HelpCircle },
 }
 
-const typeIcon: Record<DeviceType, typeof Server> = {
+const typeIcon: Record<DeviceType, LucideIcon> = {
   server: Server,
   line: Network,
   router: Router,
@@ -28,11 +43,25 @@ const typeIcon: Record<DeviceType, typeof Server> = {
   terminal: Monitor,
 }
 
-function StatTile({ label, value, tone }: { label: string; value: number; tone: string }) {
+function RoundIcon({ icon: Icon, tone, size = 'md', label }: { icon: LucideIcon; tone: string; size?: 'sm' | 'md' | 'lg'; label?: string }) {
+  const iconSize = size === 'lg' ? 20 : size === 'md' ? 15 : 12
   return (
-    <div className="summary-tile">
-      <span className={`summary-mark ${tone}`} />
-      <div><strong>{String(value).padStart(2, '0')}</strong><span>{label}</span></div>
+    <span className={`round-icon round-${size} ${tone}`} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      <Icon size={iconSize} strokeWidth={1.9} />
+    </span>
+  )
+}
+
+function StatTile({ label, value, total, tone, icon }: { label: string; value: number; total: number; tone: string; icon: LucideIcon }) {
+  const share = total > 0 ? Math.round((value / total) * 100) : 0
+  return (
+    <div className={`summary-tile ${tone}`}>
+      <RoundIcon icon={icon} tone={tone} size="lg" />
+      <div className="summary-copy">
+        <span className="summary-label">{label}</span>
+        <strong>{String(value).padStart(2, '0')}</strong>
+      </div>
+      <span className="summary-share">{share}%</span>
     </div>
   )
 }
@@ -52,16 +81,15 @@ function DeviceCard({ device, now }: { device: MonitorDevice; now: number }) {
           : '状态未知'
 
   return (
-    <div className={`device-card ${meta.color}`} title={`${device.name} · ${meta.label}`}>
-      <div className="device-topline">
-        <span className="device-type-icon"><Icon size={14} strokeWidth={1.8} /></span>
+    <div className={`device-card ${meta.tone}`} title={`${device.name} · ${meta.label}`}>
+      <span className="device-icon">
+        <RoundIcon icon={Icon} tone={meta.tone} />
+        <span className="device-badge" role="img" aria-label={meta.label} />
+      </span>
+      <span className="device-body">
         <span className="device-name">{device.name}</span>
-        <span className={`status-dot ${meta.dot}`} aria-label={meta.label} />
-      </div>
-      <div className="device-detail">
-        {status === 'unknown' && <HelpCircle size={12} />}
-        <span>{detail}</span>
-      </div>
+        <span className="device-detail">{detail}</span>
+      </span>
     </div>
   )
 }
@@ -76,23 +104,32 @@ function RegionPanel({ regionId, devices, now }: { regionId: string; devices: Mo
   const hasAlert = counts.error > 0
   const hasUnknown = counts.unknown > 0
   const region = regions.find((item) => item.id === regionId)!
+  const regionState = hasAlert
+    ? { text: '需要处理', tone: 'tone-error', icon: AlertTriangle }
+    : hasUnknown
+      ? { text: '存在未知', tone: 'tone-unknown', icon: HelpCircle }
+      : { text: '运行正常', tone: 'tone-normal', icon: CheckCircle2 }
 
   return (
-    <section className={`region-panel ${hasAlert ? 'has-alert' : ''} ${hasUnknown ? 'has-unknown' : ''}`}>
+    <section className={`region-panel ${hasAlert ? 'has-alert' : ''} ${hasUnknown ? 'has-unknown' : ''}`} aria-label={region.name}>
       <header className="region-header">
-        <div>
-          <div className="region-kicker"><span className="region-pulse" /> MONITORING ZONE</div>
-          <h2>{region.name}</h2>
+        <div className="region-title">
+          <span className="region-badge" aria-hidden="true">{region.name.charAt(0)}</span>
+          <div>
+            <span className="region-kicker">MONITORING ZONE</span>
+            <h2>{region.name}</h2>
+          </div>
         </div>
-        <div className="region-status">
-          {hasAlert ? <><span className="mini-alert-dot" />需要处理</> : hasUnknown ? <><HelpCircle size={13} />存在未知</> : <><span className="mini-ok-dot" />运行正常</>}
+        <div className={`region-state ${regionState.tone}`}>
+          <RoundIcon icon={regionState.icon} tone={regionState.tone} size="sm" />
+          {regionState.text}
         </div>
       </header>
       <div className="region-metrics">
-        <span><b>{devices.length}</b> 对象</span>
-        <span className={counts.error ? 'metric-alert' : ''}><b>{counts.error}</b> 异常</span>
-        <span className={counts.offline ? 'metric-muted' : ''}><b>{counts.offline}</b> 无影响离线</span>
-        {counts.unknown > 0 && <span className="metric-unknown"><b>{counts.unknown}</b> 未知</span>}
+        <span className="metric"><b>{devices.length}</b>对象</span>
+        <span className={`metric ${counts.error ? 'tone-error is-active' : ''}`}><i /><b>{counts.error}</b>异常</span>
+        <span className={`metric ${counts.offline ? 'tone-offline is-active' : ''}`}><i /><b>{counts.offline}</b>无影响离线</span>
+        {counts.unknown > 0 && <span className="metric tone-unknown is-active"><i /><b>{counts.unknown}</b>未知</span>}
       </div>
       <div className="device-grid">
         {ordered.map((device) => <DeviceCard key={device.id} device={device} now={now} />)}
@@ -129,6 +166,7 @@ export default function MonitorDashboard() {
   const date = new Date(now)
   const dateText = `${date.getFullYear()} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${String(date.getDate()).padStart(2, '0')}`
   const timeText = date.toLocaleTimeString('zh-CN', { hour12: false })
+  const total = devices.length
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().then(() => setIsFullscreen(true))
@@ -137,27 +175,53 @@ export default function MonitorDashboard() {
 
   return (
     <main className="monitor-shell">
-      <div className="ambient-grid" aria-hidden="true" />
       <header className="topbar">
-        <div className="brand-lockup"><div className="brand-icon"><Wifi size={20} /></div><div><div className="eyebrow">INFRASTRUCTURE OBSERVABILITY</div><h1>区域设备状态监控中心</h1></div></div>
+        <div className="brand-lockup">
+          <RoundIcon icon={Wifi} tone="tone-brand" size="lg" />
+          <div>
+            <div className="eyebrow">INFRASTRUCTURE OBSERVABILITY</div>
+            <h1>区域设备状态监控中心</h1>
+          </div>
+        </div>
         <div className="topbar-actions">
-          <div className="clock"><span>{dateText}</span><strong>{timeText}</strong></div>
+          <div className="clock"><span suppressHydrationWarning>{dateText}</span><strong suppressHydrationWarning>{timeText}</strong></div>
           <span className="demo-badge"><i />演示数据</span>
-          <button className="fullscreen-button" onClick={toggleFullscreen} aria-label="切换全屏"><Expand size={17} />{isFullscreen ? '退出全屏' : '全屏显示'}</button>
+          <button className="fullscreen-button" onClick={toggleFullscreen} aria-label="切换全屏">
+            <span className="button-icon">{isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}</span>
+            {isFullscreen ? '退出全屏' : '全屏显示'}
+          </button>
         </div>
       </header>
+
       <section className="summary-bar" aria-label="全局状态摘要">
-        <div className="summary-heading"><span className="live-line" />全局状态摘要</div>
-        <StatTile label="监控对象" value={devices.length} tone="tone-total" />
-        <StatTile label="正常数量" value={summary.normal} tone="tone-normal" />
-        <StatTile label="异常数量" value={summary.error} tone="tone-error" />
-        <StatTile label="无影响离线" value={summary.offline} tone="tone-offline" />
-        <StatTile label="状态未知" value={summary.unknown} tone="tone-unknown" />
+        <div className="summary-heading">
+          <span className="summary-title">全局状态摘要</span>
+          <div className="distribution" role="img" aria-label={`正常 ${summary.normal}，异常 ${summary.error}，无影响离线 ${summary.offline}，状态未知 ${summary.unknown}`}>
+            {(['normal', 'error', 'offline', 'unknown'] as const).map((key) => (
+              <span key={key} className={statusMeta[key].tone} style={{ flexGrow: summary[key] }} />
+            ))}
+          </div>
+        </div>
+        <StatTile label="监控对象" value={total} total={total} tone="tone-brand" icon={Activity} />
+        <StatTile label="正常数量" value={summary.normal} total={total} tone="tone-normal" icon={CheckCircle2} />
+        <StatTile label="异常数量" value={summary.error} total={total} tone="tone-error" icon={AlertTriangle} />
+        <StatTile label="无影响离线" value={summary.offline} total={total} tone="tone-offline" icon={PowerOff} />
+        <StatTile label="状态未知" value={summary.unknown} total={total} tone="tone-unknown" icon={HelpCircle} />
       </section>
+
       <div className="zones-grid">
         {regions.map((region) => <RegionPanel key={region.id} regionId={region.id} devices={devices.filter((device) => device.regionId === region.id)} now={now} />)}
       </div>
-      <footer className="screen-footer"><span><span className="footer-dot" />状态每 30 秒更新计时</span><span>数据源：本地演示配置</span></footer>
+
+      <footer className="screen-footer">
+        <span><span className="footer-dot" />状态每 30 秒更新计时</span>
+        <span className="legend">
+          {(['normal', 'error', 'offline', 'unknown'] as const).map((key) => (
+            <span key={key} className={statusMeta[key].tone}><i />{statusMeta[key].label}</span>
+          ))}
+        </span>
+        <span>数据源：本地演示配置</span>
+      </footer>
     </main>
   )
 }
