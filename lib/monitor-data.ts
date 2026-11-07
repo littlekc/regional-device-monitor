@@ -1,6 +1,16 @@
 export type DeviceType = 'server' | 'line' | 'router' | 'power' | 'terminal'
 export type DeviceStatus = 'normal' | 'error' | 'offline' | 'unknown'
 
+export type MetricKind = 'percent' | 'power' | 'none'
+
+export type DeviceMetric = {
+  metricKind: MetricKind
+  metricLabel?: string
+  metricValue?: number
+  metricUnit?: string
+  metricMax?: number
+}
+
 export type MonitorDevice = {
   id: string
   name: string
@@ -11,6 +21,45 @@ export type MonitorDevice = {
   allowOffline: boolean
   offlineSince?: number
   faultMessage?: string
+} & Partial<DeviceMetric>
+
+const metricShowcase: Record<string, number> = {
+  'a-server-01': 36,
+  'a-router-01': 24,
+  'a-line-01': 62,
+  'a-power-02': 28.6,
+}
+
+function stableHash(value: string): number {
+  let hash = 0
+  for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return hash
+}
+
+function pick(id: string, min: number, max: number, decimals = 0): number {
+  const factor = 10 ** decimals
+  const span = Math.round((max - min) * factor)
+  return min + (stableHash(id) % (span + 1)) / factor
+}
+
+export function getDemoMetric(id: string, type: DeviceType): DeviceMetric {
+  const showcase = metricShowcase[id]
+  switch (type) {
+    case 'server':
+      return { metricKind: 'percent', metricLabel: 'CPU', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 18, 72) }
+    case 'router':
+      return { metricKind: 'percent', metricLabel: '使用率', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 15, 55) }
+    case 'line':
+      return { metricKind: 'percent', metricLabel: '带宽', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 20, 80) }
+    case 'power':
+      return { metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: showcase ?? pick(id, 14, 96, 1) }
+    default:
+      return { metricKind: 'none' }
+  }
+}
+
+export function withDemoMetric(device: MonitorDevice): MonitorDevice {
+  return device.metricKind ? device : { ...device, ...getDemoMetric(device.id, device.type) }
 }
 
 export type Region = {
@@ -78,6 +127,7 @@ export function createDemoDevices(initializedAt = Date.now()): MonitorDevice[] {
           reachable: true,
           hasFault: false,
           allowOffline: false,
+          ...getDemoMetric(id, type),
           ...override,
           offlineSince,
         }
@@ -98,9 +148,9 @@ export function formatOfflineDuration(offlineSince: number, now: number): string
   const days = Math.floor(totalMinutes / 1440)
   const hours = Math.floor((totalMinutes % 1440) / 60)
   const minutes = totalMinutes % 60
-  if (days > 0) return `离线 ${days}天${hours}小时`
-  if (hours > 0) return `离线 ${hours}小时${minutes}分`
-  return `离线 ${minutes}分钟`
+  if (days > 0) return `离线${days}天${hours}小时`
+  if (hours > 0) return `离线${hours}小时${minutes}分`
+  return `离线${minutes}分钟`
 }
 
 export function sortDevices(devices: MonitorDevice[]): MonitorDevice[] {
