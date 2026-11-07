@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -42,25 +42,34 @@ const normalText: Record<DeviceType, string> = {
   terminal: '设备在线',
 }
 
-const GAUGE_RADIUS = 38
+const GAUGE_RADIUS = 41
 const CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS
-const ARC_SWEEP = 300
+const ARC_SWEEP = 270
 const ARC_LENGTH = (CIRCUMFERENCE * ARC_SWEEP) / 360
 const ARC_START = 90 + (360 - ARC_SWEEP) / 2
 
-const gaugeTicks = Array.from({ length: 11 }, (_, index) => {
-  const angle = ((ARC_START + (ARC_SWEEP * index) / 10) * Math.PI) / 180
-  const major = index % 5 === 0
-  const inner = major ? 42.5 : 43.5
-  const outer = 46.5
-  return {
-    major,
-    x1: 50 + inner * Math.cos(angle),
-    y1: 50 + inner * Math.sin(angle),
-    x2: 50 + outer * Math.cos(angle),
-    y2: 50 + outer * Math.sin(angle),
-  }
-})
+const LEVEL_STOPS = [
+  { at: 0, h: 152, s: 62, l: 50 },
+  { at: 0.5, h: 46, s: 92, l: 56 },
+  { at: 1, h: 356, s: 84, l: 60 },
+]
+
+function levelColor(progress: number): string {
+  const p = Math.min(1, Math.max(0, progress))
+  const upper = p <= LEVEL_STOPS[1].at ? 1 : 2
+  const from = LEVEL_STOPS[upper - 1]
+  const to = LEVEL_STOPS[upper]
+  const t = (p - from.at) / (to.at - from.at)
+  const toHue = to.h > from.h ? to.h - 360 : to.h
+  const hue = (from.h + (toHue - from.h) * t + 360) % 360
+  const mix = (a: number, b: number) => a + (b - a) * t
+  return `hsl(${hue.toFixed(1)} ${mix(from.s, to.s).toFixed(1)}% ${mix(from.l, to.l).toFixed(1)}%)`
+}
+
+function arcPoint(progress: number) {
+  const angle = ((ARC_START + ARC_SWEEP * progress) * Math.PI) / 180
+  return { x: 50 + GAUGE_RADIUS * Math.cos(angle), y: 50 + GAUGE_RADIUS * Math.sin(angle) }
+}
 
 function RoundIcon({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon; tone: string; size?: 'sm' | 'md' }) {
   return (
@@ -92,14 +101,16 @@ function getStatusText(device: MonitorDevice, status: DeviceStatus, now: number)
   return device.offlineSince ? formatOfflineDuration(device.offlineSince, now) : '状态未知'
 }
 
-function Gauge({ reading, tone, ariaLabel }: { reading: GaugeReading; tone: string; ariaLabel: string }) {
+function Gauge({ reading, tone, alert, ariaLabel }: { reading: GaugeReading; tone: string; alert: boolean; ariaLabel: string }) {
+  const hasLevel = reading.kind === 'value'
+  const level = hasLevel ? levelColor(reading.progress) : undefined
+  const cap = hasLevel ? arcPoint(reading.progress) : undefined
+  const style = level ? ({ '--level': level } as CSSProperties) : undefined
+
   return (
-    <div className={`gauge ${tone}`} role="img" aria-label={ariaLabel}>
+    <div className={`gauge ${tone} ${hasLevel ? 'has-level' : 'is-idle'}`} style={style} role="img" aria-label={ariaLabel}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle className="gauge-disk" cx="50" cy="50" r="48.5" />
-        {gaugeTicks.map((tick, index) => (
-          <line key={index} className={tick.major ? 'gauge-tick is-major' : 'gauge-tick'} x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} />
-        ))}
+        <circle className="gauge-face" cx="50" cy="50" r="34.5" />
         <circle
           className="gauge-track"
           cx="50"
@@ -108,7 +119,7 @@ function Gauge({ reading, tone, ariaLabel }: { reading: GaugeReading; tone: stri
           strokeDasharray={`${ARC_LENGTH} ${CIRCUMFERENCE}`}
           transform={`rotate(${ARC_START} 50 50)`}
         />
-        {reading.kind === 'value' && reading.progress > 0 && (
+        {hasLevel && reading.progress > 0 && (
           <circle
             className="gauge-progress"
             cx="50"
@@ -118,7 +129,13 @@ function Gauge({ reading, tone, ariaLabel }: { reading: GaugeReading; tone: stri
             transform={`rotate(${ARC_START} 50 50)`}
           />
         )}
+        {cap && <circle className="gauge-cap" cx={cap.x} cy={cap.y} r="4.2" />}
       </svg>
+      {alert && (
+        <span className="gauge-alert" aria-hidden="true">
+          <AlertTriangle size={9} strokeWidth={2.6} />
+        </span>
+      )}
       <span className="gauge-center" aria-hidden="true">
         {reading.kind === 'value' && (
           <>
@@ -148,7 +165,7 @@ function DeviceUnit({ device, now }: { device: MonitorDevice; now: number }) {
   return (
     <div className={`device-unit ${meta.tone}`} title={`${device.name} · ${meta.label} · ${statusText}`}>
       <span className="device-name">{device.name}</span>
-      <Gauge reading={reading} tone={meta.tone} ariaLabel={`${device.name}，${meta.label}，${readingText}`} />
+      <Gauge reading={reading} tone={meta.tone} alert={status === 'error'} ariaLabel={`${device.name}，${meta.label}，${readingText}`} />
       <span className="device-status">{statusText}</span>
     </div>
   )
