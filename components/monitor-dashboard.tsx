@@ -1,13 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Activity,
   AlertTriangle,
+  Check,
   CheckCircle2,
   Expand,
   HelpCircle,
+  Minus,
   Monitor,
+  Palette,
+  X,
   PowerOff,
   Shrink,
   Wifi,
@@ -42,34 +46,28 @@ const normalText: Record<DeviceType, string> = {
   terminal: '设备在线',
 }
 
-const GAUGE_RADIUS = 41
-const CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS
-const ARC_SWEEP = 270
-const ARC_LENGTH = (CIRCUMFERENCE * ARC_SWEEP) / 360
-const ARC_START = 90 + (360 - ARC_SWEEP) / 2
+const STATUS_RING_RADIUS = 46
+const LOAD_RING_RADIUS = 37
+const LOAD_CIRCUMFERENCE = 2 * Math.PI * LOAD_RING_RADIUS
+const PALETTE_KEY = 'region-monitor-gauge-palette'
 
-const LEVEL_STOPS = [
-  { at: 0, h: 152, s: 62, l: 50 },
-  { at: 0.5, h: 46, s: 92, l: 56 },
-  { at: 1, h: 356, s: 84, l: 60 },
-]
+export const palettes = [
+  { id: 'harbor', name: '港湾蓝', note: '默认 · 冷色负荷，暖色告警', swatches: ['#5cc8ec', '#56c9a0', '#ff5b69', '#f2b24a'] },
+  { id: 'titanium', name: '钛白橙', note: '高对比 · 色觉差异友好', swatches: ['#e6eef6', '#9db2c4', '#ff8a2b', '#59a8ff'] },
+  { id: 'jade', name: '玉青', note: '柔和 · 长时间值守', swatches: ['#42d6c2', '#7fcf9e', '#ff4d8d', '#ffd166'] },
+] as const
 
-function levelColor(progress: number): string {
-  const p = Math.min(1, Math.max(0, progress))
-  const upper = p <= LEVEL_STOPS[1].at ? 1 : 2
-  const from = LEVEL_STOPS[upper - 1]
-  const to = LEVEL_STOPS[upper]
-  const t = (p - from.at) / (to.at - from.at)
-  const toHue = to.h > from.h ? to.h - 360 : to.h
-  const hue = (from.h + (toHue - from.h) * t + 360) % 360
-  const mix = (a: number, b: number) => a + (b - a) * t
-  return `hsl(${hue.toFixed(1)} ${mix(from.s, to.s).toFixed(1)}% ${mix(from.l, to.l).toFixed(1)}%)`
+export type PaletteId = (typeof palettes)[number]['id']
+
+const statusBadgeIcon: Record<GaugeStatus, LucideIcon> = {
+  normal: Check,
+  error: AlertTriangle,
+  'error-offline': PowerOff,
+  offline: Minus,
+  unknown: HelpCircle,
 }
 
-function arcPoint(progress: number) {
-  const angle = ((ARC_START + ARC_SWEEP * progress) * Math.PI) / 180
-  return { x: 50 + GAUGE_RADIUS * Math.cos(angle), y: 50 + GAUGE_RADIUS * Math.sin(angle) }
-}
+type GaugeStatus = DeviceStatus | 'error-offline'
 
 function RoundIcon({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon; tone: string; size?: 'sm' | 'md' }) {
   return (
@@ -82,12 +80,15 @@ function RoundIcon({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon; tone: 
 type GaugeReading =
   | { kind: 'value'; value: string; unit: string; label?: string; progress: number }
   | { kind: 'online' }
-  | { kind: 'empty'; symbol: string }
+  | { kind: 'missing'; label?: string }
+  | { kind: 'offline' }
+  | { kind: 'unknown' }
 
 function getReading(device: MonitorDevice, status: DeviceStatus): GaugeReading {
-  if (status === 'unknown') return { kind: 'empty', symbol: '?' }
-  if (!device.reachable) return { kind: 'empty', symbol: '—' }
-  if (!device.metricKind || device.metricKind === 'none' || device.metricValue === undefined) return { kind: 'online' }
+  if (status === 'unknown') return { kind: 'unknown' }
+  if (!device.reachable) return { kind: 'offline' }
+  if (!device.metricKind || device.metricKind === 'none') return { kind: 'online' }
+  if (device.metricValue === undefined || !Number.isFinite(device.metricValue)) return { kind: 'missing', label: device.metricLabel }
   const max = device.metricKind === 'percent' ? 100 : device.metricMax ?? 100
   const progress = Math.min(1, Math.max(0, device.metricValue / max))
   const value = device.metricKind === 'power' ? device.metricValue.toFixed(1) : String(Math.round(device.metricValue))
@@ -101,41 +102,21 @@ function getStatusText(device: MonitorDevice, status: DeviceStatus, now: number)
   return device.offlineSince ? formatOfflineDuration(device.offlineSince, now) : '状态未知'
 }
 
-function Gauge({ reading, tone, alert, ariaLabel }: { reading: GaugeReading; tone: string; alert: boolean; ariaLabel: string }) {
-  const hasLevel = reading.kind === 'value'
-  const level = hasLevel ? levelColor(reading.progress) : undefined
-  const cap = hasLevel ? arcPoint(reading.progress) : undefined
-  const style = level ? ({ '--level': level } as CSSProperties) : undefined
+function Gauge({ reading, gaugeStatus, ariaLabel }: { reading: GaugeReading; gaugeStatus: GaugeStatus; ariaLabel: string }) {
+  const BadgeIcon = statusBadgeIcon[gaugeStatus]
+  const progress = reading.kind === 'value' ? reading.progress : 0
+  const style = { '--load-dash': `${LOAD_CIRCUMFERENCE * progress} ${LOAD_CIRCUMFERENCE}` } as CSSProperties
 
   return (
-    <div className={`gauge ${tone} ${hasLevel ? 'has-level' : 'is-idle'}`} style={style} role="img" aria-label={ariaLabel}>
+    <div className={`gauge gs-${gaugeStatus} gr-${reading.kind}`} style={style} role="img" aria-label={ariaLabel}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle className="gauge-face" cx="50" cy="50" r="34.5" />
-        <circle
-          className="gauge-track"
-          cx="50"
-          cy="50"
-          r={GAUGE_RADIUS}
-          strokeDasharray={`${ARC_LENGTH} ${CIRCUMFERENCE}`}
-          transform={`rotate(${ARC_START} 50 50)`}
-        />
-        {hasLevel && reading.progress > 0 && (
-          <circle
-            className="gauge-progress"
-            cx="50"
-            cy="50"
-            r={GAUGE_RADIUS}
-            strokeDasharray={`${ARC_LENGTH * reading.progress} ${CIRCUMFERENCE}`}
-            transform={`rotate(${ARC_START} 50 50)`}
-          />
+        <circle className="gauge-status-ring" cx="50" cy="50" r={STATUS_RING_RADIUS} />
+        <circle className="gauge-face" cx="50" cy="50" r="41" />
+        <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS} />
+        {reading.kind === 'value' && progress > 0 && (
+          <circle className="gauge-load" cx="50" cy="50" r={LOAD_RING_RADIUS} transform="rotate(-90 50 50)" />
         )}
-        {cap && <circle className="gauge-cap" cx={cap.x} cy={cap.y} r="4.2" />}
       </svg>
-      {alert && (
-        <span className="gauge-alert" aria-hidden="true">
-          <AlertTriangle size={9} strokeWidth={2.6} />
-        </span>
-      )}
       <span className="gauge-center" aria-hidden="true">
         {reading.kind === 'value' && (
           <>
@@ -149,10 +130,40 @@ function Gauge({ reading, tone, alert, ariaLabel }: { reading: GaugeReading; ton
             <span className="gauge-label">在线</span>
           </>
         )}
-        {reading.kind === 'empty' && <span className="gauge-empty">{reading.symbol}</span>}
+        {reading.kind === 'missing' && (
+          <>
+            <span className="gauge-empty">--</span>
+            <span className="gauge-label">{reading.label ? `${reading.label}无数据` : '无数据'}</span>
+          </>
+        )}
+        {reading.kind === 'offline' && (
+          <>
+            <PowerOff size={17} strokeWidth={1.8} />
+            <span className="gauge-label">无读数</span>
+          </>
+        )}
+        {reading.kind === 'unknown' && (
+          <>
+            <span className="gauge-empty">?</span>
+            <span className="gauge-label">未知</span>
+          </>
+        )}
+      </span>
+      <span className="gauge-badge" aria-hidden="true">
+        <BadgeIcon size={10} strokeWidth={2.8} />
       </span>
     </div>
   )
+}
+
+function describeReading(reading: GaugeReading): string {
+  switch (reading.kind) {
+    case 'value': return `${reading.label ?? ''} ${reading.value}${reading.unit}`
+    case 'online': return '在线，无负荷指标'
+    case 'missing': return '指标数据缺失'
+    case 'offline': return '离线，无当前读数'
+    default: return '无当前读数'
+  }
 }
 
 function DeviceUnit({ device, now }: { device: MonitorDevice; now: number }) {
@@ -160,13 +171,60 @@ function DeviceUnit({ device, now }: { device: MonitorDevice; now: number }) {
   const meta = statusMeta[status]
   const reading = getReading(device, status)
   const statusText = getStatusText(device, status, now)
-  const readingText = reading.kind === 'value' ? `${reading.label ?? ''} ${reading.value}${reading.unit}` : reading.kind === 'online' ? '在线' : '无当前数值'
+  const gaugeStatus: GaugeStatus = status === 'error' && !device.reachable ? 'error-offline' : status
 
   return (
     <div className={`device-unit ${meta.tone}`} title={`${device.name} · ${meta.label} · ${statusText}`}>
       <span className="device-name">{device.name}</span>
-      <Gauge reading={reading} tone={meta.tone} alert={status === 'error'} ariaLabel={`${device.name}，${meta.label}，${readingText}`} />
+      <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={`${device.name}，${meta.label}，${describeReading(reading)}`} />
       <span className="device-status">{statusText}</span>
+    </div>
+  )
+}
+
+function GaugeLegend({ palette, onPaletteChange }: { palette: PaletteId; onPaletteChange: (id: PaletteId) => void }) {
+  const [sampleNow] = useState(() => Date.now())
+  const base = { regionId: 'sample', reachable: true, hasFault: false, allowOffline: false }
+  const percent = { metricKind: 'percent' as const, metricLabel: 'CPU', metricUnit: '%', metricMax: 100 }
+  const samples: { caption: string; device: MonitorDevice }[] = [
+    { caption: '低值 · 正常', device: { ...base, ...percent, id: 's1', name: '样例-低值', type: 'server', metricValue: 1 } },
+    { caption: '满负荷 · 正常', device: { ...base, ...percent, id: 's2', name: '样例-满载', type: 'server', metricValue: 100 } },
+    { caption: '功率 200/200W', device: { ...base, id: 's3', name: '样例-功率', type: 'power', metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: 200 } },
+    { caption: '在线 · 无指标', device: { ...base, id: 's4', name: '样例-终端', type: 'terminal', metricKind: 'none' } },
+    { caption: '在线 · 数据缺失', device: { ...base, ...percent, id: 's5', name: '样例-缺数', type: 'server' } },
+    { caption: '在线故障', device: { ...base, id: 's6', name: '样例-故障', type: 'power', metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: 42.5, hasFault: true, faultMessage: '供电异常' } },
+    { caption: '需在线却离线', device: { ...base, ...percent, id: 's7', name: '样例-告警离线', type: 'line', metricLabel: '带宽', reachable: false, offlineSince: sampleNow - 25 * 60_000 } },
+    { caption: '允许离线', device: { ...base, id: 's8', name: '样例-允许离线', type: 'terminal', metricKind: 'none', reachable: false, allowOffline: true, offlineSince: sampleNow - 3 * 60 * 60_000 } },
+    { caption: '状态未知', device: { ...base, id: 's9', name: '样例-未知', type: 'terminal', metricKind: 'none', reachable: false } },
+  ]
+
+  return (
+    <div className="legend-body">
+      <fieldset className="palette-picker">
+        <legend>配色方案</legend>
+        {palettes.map((item) => (
+          <label key={item.id} className={`palette-option ${palette === item.id ? 'is-selected' : ''}`}>
+            <input type="radio" name="gauge-palette" value={item.id} checked={palette === item.id} onChange={() => onPaletteChange(item.id)} />
+            <span className="palette-swatches" aria-hidden="true">
+              {item.swatches.map((color) => <i key={color} style={{ background: color }} />)}
+            </span>
+            <span className="palette-text"><b>{item.name}</b><small>{item.note}</small></span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="legend-key">
+        <span><i className="key-load" />内环 + 中心数字 = 实际负荷（真实比例）</span>
+        <span><i className="key-status" />外环 + 右下圆形徽标 = 运行状态</span>
+      </div>
+      <p className="sample-note">以下为设计测试样例，独立于 89 个监控对象，不计入任何统计。</p>
+      <div className="sample-grid">
+        {samples.map(({ caption, device }) => (
+          <figure key={device.id} className="sample-cell">
+            <DeviceUnit device={device} now={sampleNow} />
+            <figcaption>{caption}</figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   )
 }
@@ -237,10 +295,19 @@ export default function MonitorDashboard() {
   const [now, setNow] = useState(() => Date.now())
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [devices, setDevices] = useState<MonitorDevice[]>([])
+  const [palette, setPalette] = useState<PaletteId>('harbor')
+  const legendRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     setDevices(loadDevices())
+    const savedPalette = window.localStorage.getItem(PALETTE_KEY)
+    if (palettes.some((item) => item.id === savedPalette)) setPalette(savedPalette as PaletteId)
   }, [])
+
+  function changePalette(id: PaletteId) {
+    setPalette(id)
+    window.localStorage.setItem(PALETTE_KEY, id)
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -277,7 +344,14 @@ export default function MonitorDashboard() {
   ]
 
   return (
-    <main className="monitor-shell">
+    <main className="monitor-shell" data-palette={palette}>
+      <dialog ref={legendRef} className="legend-dialog" aria-labelledby="legend-title" onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close() }}>
+        <div className="legend-head">
+          <h2 id="legend-title">仪表图例与配色</h2>
+          <button type="button" className="legend-close" onClick={() => legendRef.current?.close()} aria-label="关闭图例"><X size={14} /></button>
+        </div>
+        <GaugeLegend palette={palette} onPaletteChange={changePalette} />
+      </dialog>
       <header className="topbar">
         <div className="brand-lockup">
           <RoundIcon icon={Wifi} tone="tone-brand" />
@@ -286,6 +360,10 @@ export default function MonitorDashboard() {
         <div className="topbar-actions">
           <div className="clock"><span suppressHydrationWarning>{dateText}</span><strong suppressHydrationWarning>{timeText}</strong></div>
           <span className="demo-badge"><i />演示数据</span>
+          <button type="button" className="fullscreen-button" onClick={() => legendRef.current?.showModal()}>
+            <span className="button-icon"><Palette size={13} /></span>
+            图例 · 配色
+          </button>
           <button type="button" className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? '退出全屏' : '全屏显示'}>
             <span className="button-icon">{isFullscreen ? <Shrink size={13} /> : <Expand size={13} />}</span>
             {isFullscreen ? '退出全屏' : '全屏显示'}
