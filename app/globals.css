@@ -76,6 +76,13 @@ h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: .12em; font-w
 .fullscreen-button { padding-left: 4px; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
 .fullscreen-button:hover { background: rgba(70, 194, 227, .12); border-color: rgba(70, 194, 227, .45); color: var(--foreground); }
 .fullscreen-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.admin-entry {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 9999px;
+  color: var(--muted); font-size: 12px; white-space: nowrap; text-decoration: none;
+  border: 1px solid var(--line); transition: color .2s, border-color .2s;
+}
+.admin-entry:hover { color: var(--foreground); border-color: var(--line-strong); }
+.admin-entry:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .button-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(70, 194, 227, .14); color: var(--brand); }
 
 /* Thin summary row */
@@ -204,13 +211,13 @@ h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: .12em; font-w
 .gauge:not(.gr-value) .gauge-load-track { stroke: color-mix(in oklab, var(--offline) 12%, transparent); }
 
 /* Palettes: --load is the only metric hue; status hues stay distinct from it. */
-.monitor-shell[data-palette='harbor'] {
+[data-palette='harbor'] {
   --load: #5cc8ec; --normal: #56c9a0; --error: #ff5b69; --unknown: #f2b24a; --offline: #7f8e9d;
 }
-.monitor-shell[data-palette='titanium'] {
+[data-palette='titanium'] {
   --load: #e6eef6; --normal: #9db2c4; --error: #ff8a2b; --unknown: #59a8ff; --offline: #6f7e8c;
 }
-.monitor-shell[data-palette='jade'] {
+[data-palette='jade'] {
   --load: #42d6c2; --normal: #7fcf9e; --error: #ff4d8d; --unknown: #ffd166; --offline: #7a8693;
 }
 
@@ -255,7 +262,7 @@ h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: .12em; font-w
 /* 1920x1080-class screens: everything on one screen, 8x3 per zone */
 @media (min-width: 1600px) and (min-height: 900px) {
   .monitor-shell { height: 100vh; overflow: hidden; }
-  .zones-grid { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .zones-grid { grid-auto-rows: minmax(0, 1fr); }
   .device-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); align-content: stretch; align-items: center; gap: 4px; padding: 6px 10px 8px; }
 }
 @media (min-width: 2200px) and (min-height: 1200px) {
