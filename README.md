@@ -31,3 +31,20 @@ To learn more, take a look at the following resources:
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 - [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+
+## Regression checks
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+The test suite loads the actual TypeScript modules and renders the actual React
+components, with in-memory localStorage for isolated persistence checks. It does
+not touch browser data or connect to Zabbix. There is no configured lint script.
+
+`hasFault` describes a current explicit fault in the fixed demo. A future adapter
+must set `faultAvailable: false` for stale/unavailable fault samples; these samples
+must not be reused as live alarms. An unavailable overall status remains unknown.
+This flag is an input contract, not an automatic expiry timer.
