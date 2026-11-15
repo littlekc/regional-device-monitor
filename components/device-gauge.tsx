@@ -84,8 +84,12 @@ export function getReading(device: MonitorDevice, status: DeviceStatus = getDevi
 export function getStatusText(device: MonitorDevice, status: DeviceStatus, now: number): string {
   if (status === 'unknown') return '状态未知'
   if (status === 'normal') return normalText[device.type]
-  if (device.reachable && device.hasFault) return device.faultMessage ?? '检测到故障'
-  return device.offlineSince ? formatOfflineDuration(device.offlineSince, now) : '离线，时长未知'
+  const offlineText = device.offlineSince !== undefined ? formatOfflineDuration(device.offlineSince, now) : '离线，时长未知'
+  if (device.hasFault && device.faultAvailable !== false) {
+    const faultText = device.faultMessage ?? '检测到故障'
+    return device.reachable ? faultText : `${faultText} · ${offlineText}`
+  }
+  return offlineText
 }
 
 function Gauge({ reading, gaugeStatus, ariaLabel }: { reading: GaugeReading; gaugeStatus: GaugeStatus; ariaLabel: string }) {
