@@ -67,11 +67,11 @@ function readRaw() {
 
 function load(): DemoState {
   const savedDevices = readJson<MonitorDevice[]>(KEYS.devices)
-  const devices = Array.isArray(savedDevices) && savedDevices.length > 0 ? migrateCachedDevices(savedDevices) : createDemoDevices()
+  const devices = Array.isArray(savedDevices) ? migrateCachedDevices(savedDevices) : createDemoDevices()
   write(KEYS.devices, devices)
 
   const savedRegions = readJson<Region[]>(KEYS.regions)
-  const regions = Array.isArray(savedRegions) && savedRegions.length > 0
+  const regions = Array.isArray(savedRegions)
     ? savedRegions.map((region, index) => ({ ...region, order: region.order ?? index + 1 }))
     : defaultRegions
   write(KEYS.regions, regions)

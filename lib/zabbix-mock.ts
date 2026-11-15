@@ -131,6 +131,7 @@ export function resolveDraft(draft: ProjectDraft, id: string, now: number, exist
     allowOffline: draft.allowOffline,
     reachable: existing?.reachable ?? true,
     hasFault: existing?.hasFault ?? false,
+    faultAvailable: existing?.faultAvailable,
     offlineSince: existing?.offlineSince,
     faultMessage: existing?.faultMessage,
     statusAvailable: existing?.statusAvailable,
@@ -154,6 +155,7 @@ export function resolveDraft(draft: ProjectDraft, id: string, now: number, exist
 
   if (draft.hostId) {
     const faultItem = getItem(draft.faultItemId)
+    base.faultAvailable = faultItem?.role === 'fault'
     base.hasFault = faultItem?.role === 'fault' ? faultItem.active : false
     base.faultMessage = faultItem?.role === 'fault' ? faultItem.message : undefined
   }

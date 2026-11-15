@@ -17,7 +17,10 @@ export type MonitorDevice = {
   regionId: string
   type: DeviceType
   reachable: boolean
+  /** 当前明确故障；失效或陈旧的故障样本须同时设置 faultAvailable=false。 */
   hasFault: boolean
+  /** false = 故障样本不可用/已失效；缺省兼容原有固定演示故障。 */
+  faultAvailable?: boolean
   allowOffline: boolean
   offlineSince?: number
   faultMessage?: string
@@ -160,7 +163,7 @@ export function createDemoDevices(initializedAt = Date.now()): MonitorDevice[] {
 /** 未知优先：状态数据不可用时，即使允许离线也不显示灰色。 */
 export function getDeviceStatus(device: MonitorDevice): DeviceStatus {
   if (device.statusAvailable === false) return 'unknown'
-  if (device.reachable && device.hasFault) return 'error'
+  if (device.hasFault && device.faultAvailable !== false) return 'error'
   if (!device.reachable) return device.allowOffline ? 'offline' : 'error'
   return 'normal'
 }
