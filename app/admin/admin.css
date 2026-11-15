@@ -234,3 +234,9 @@ select.input { cursor: pointer; }
   .admin-brand span:not(.admin-brand-sub) { display: none; }
   .admin-nav-link { padding: 0 10px; }
 }
+
+/* Native disclosure keeps secondary controls keyboard-accessible and collapsed. */
+.more-settings { display: block; }
+.more-settings > summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; }
+.more-settings > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
+.more-settings[open] > .field, .more-settings[open] > .field-hint { margin-top: 14px; }
