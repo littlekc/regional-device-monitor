@@ -121,7 +121,10 @@ export function ProjectForm({ device, regions, defaultRegionId, onDone, onCancel
     setErrors(nextErrors)
     const first = fieldOrder.find((key) => nextErrors[key])
     if (first) {
-      document.getElementById(`pf-${first}`)?.focus()
+      const field = document.getElementById(`pf-${first}`)
+      const disclosure = field?.closest('details')
+      if (disclosure) disclosure.open = true
+      field?.focus()
       return
     }
     setSaving(true)
@@ -153,9 +156,6 @@ export function ProjectForm({ device, regions, defaultRegionId, onDone, onCancel
                 {(Object.keys(adminTypeLabels) as DeviceType[]).map((type) => <option key={type} value={type}>{adminTypeLabels[type]}</option>)}
               </select>
             </Field>
-            <Field id="pf-order" label="显示顺序" error={errors.order} hint="留空则按默认顺序；异常项目仍会优先显示">
-              <input id="pf-order" className="input" inputMode="numeric" value={draft.order} aria-invalid={Boolean(errors.order) || undefined} aria-describedby={describe('order', true)} onChange={(e) => patch({ order: e.target.value })} placeholder="例如 10" />
-            </Field>
           </div>
         </section>
 
@@ -172,14 +172,6 @@ export function ProjectForm({ device, regions, defaultRegionId, onDone, onCancel
                 <ItemChoices name="pf-statusItemId" items={statusItems} value={draft.statusItemId} onChange={(statusItemId) => patch({ statusItemId })} invalid={Boolean(errors.statusItemId)} describedBy={describe('statusItemId')} />
                 {errors.statusItemId && <p id="pf-statusItemId-error" className="field-error">{errors.statusItemId}</p>}
               </div>
-              {faultItems.length > 0 && (
-                <Field id="pf-faultItemId" label="故障监控项" hint="可选；触发时圆图显示红色故障">
-                  <select id="pf-faultItemId" className="input" value={draft.faultItemId} aria-describedby="pf-faultItemId-hint" onChange={(e) => patch({ faultItemId: e.target.value })}>
-                    <option value="">不绑定</option>
-                    {faultItems.map((item) => <option key={item.id} value={item.id}>{item.name} · {describeItemSample(item)}</option>)}
-                  </select>
-                </Field>
-              )}
             </>
           )}
         </section>
@@ -227,7 +219,7 @@ export function ProjectForm({ device, regions, defaultRegionId, onDone, onCancel
           <div className="switch-row">
             <div>
               <span className="field-label" id="pf-allow-label">允许离线</span>
-              <p className="field-hint" id="pf-allow-hint">开启后离线显示灰色，不计为异常</p>
+              <p className="field-hint" id="pf-allow-hint">开启后，确认离线时显示灰色；其他明确故障仍显示异常。</p>
             </div>
             <button
               type="button"
@@ -242,6 +234,21 @@ export function ProjectForm({ device, regions, defaultRegionId, onDone, onCancel
             </button>
           </div>
         </section>
+        <details className="form-section more-settings">
+          <summary>更多设置</summary>
+          <Field id="pf-order" label="显示顺序" error={errors.order} hint="留空则按默认顺序；异常项目仍会优先显示">
+            <input id="pf-order" className="input" inputMode="numeric" value={draft.order} aria-invalid={Boolean(errors.order) || undefined} aria-describedby={describe('order', true)} onChange={(e) => patch({ order: e.target.value })} placeholder="例如 10" />
+          </Field>
+          {faultItems.length > 0 && (
+            <Field id="pf-faultItemId" label="关联故障告警" hint="可选；触发时圆图显示红色故障">
+              <select id="pf-faultItemId" className="input" value={draft.faultItemId} aria-describedby="pf-faultItemId-hint" onChange={(e) => patch({ faultItemId: e.target.value })}>
+                <option value="">不绑定</option>
+                {faultItems.map((item) => <option key={item.id} value={item.id}>{item.name} · {describeItemSample(item)}</option>)}
+              </select>
+            </Field>
+          )}
+          {faultItems.length === 0 && <p className="field-hint">当前主机没有可关联的故障告警。</p>}
+        </details>
       </div>
 
       <aside className="form-preview" aria-label="大屏预览">
