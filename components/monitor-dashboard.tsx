@@ -26,12 +26,20 @@ import {
 } from '@/lib/monitor-data'
 import { demoApi, syncFromStorage, useDemoState, type PaletteId } from '@/lib/demo-store'
 import { DeviceUnit, RoundIcon, palettes, statusMeta } from '@/components/device-gauge'
+import { DeviceHistoryDialog } from '@/components/device-history-dialog'
 
-function GaugeLegend({ palette, onPaletteChange }: { palette: PaletteId; onPaletteChange: (id: PaletteId) => void }) {
+type OpenHandler = (device: MonitorDevice) => void
+
+function GaugeLegend({ palette, onPaletteChange, onOpen }: { palette: PaletteId; onPaletteChange: (id: PaletteId) => void; onOpen: OpenHandler }) {
   const [sampleNow] = useState(() => Date.now())
   const base = { regionId: 'sample', reachable: true, hasFault: false, allowOffline: false }
   const percent = { metricKind: 'percent' as const, metricLabel: 'CPU', metricUnit: '%', metricMax: 100 }
+  const traffic = { metricKind: 'traffic' as const, metricLabel: '连接数', uploadMax: 100, downloadMax: 1000 }
   const samples: { caption: string; device: MonitorDevice }[] = [
+    { caption: '流量 · 正常', device: { ...base, ...traffic, id: 's10', name: '样例-流量', type: 'router', uploadValue: 42.6, downloadValue: 356, connections: 1284 } },
+    { caption: '上下行满载', device: { ...base, ...traffic, id: 's11', name: '样例-满载链路', type: 'line', uploadValue: 100, downloadValue: 1000, connections: 18600 } },
+    { caption: '流量 · 上行缺失', device: { ...base, ...traffic, id: 's12', name: '样例-缺上行', type: 'router', downloadValue: 220, connections: 640 } },
+    { caption: '流量 · 告警离线', device: { ...base, ...traffic, id: 's13', name: '样例-出口离线', type: 'router', reachable: false, offlineSince: sampleNow - 52 * 60_000 } },
     { caption: '低值 · 正常', device: { ...base, ...percent, id: 's1', name: '样例-低值', type: 'server', metricValue: 1 } },
     { caption: '满负荷 · 正常', device: { ...base, ...percent, id: 's2', name: '样例-满载', type: 'server', metricValue: 100 } },
     { caption: '功率 200/200W', device: { ...base, id: 's3', name: '样例-功率', type: 'power', metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: 200 } },
@@ -59,13 +67,14 @@ function GaugeLegend({ palette, onPaletteChange }: { palette: PaletteId; onPalet
       </fieldset>
       <div className="legend-key">
         <span><i className="key-load" />内环 + 中心数字 = 实际负荷（真实比例）</span>
+        <span><i className="key-split" />流量型：上半圆 = 上传占比，下半圆 = 下载占比，圆心 = 连接数</span>
         <span><i className="key-status" />外环 + 右下圆形徽标 = 运行状态</span>
       </div>
-      <p className="sample-note">以下为设计测试样例，独立于大屏监控对象，不计入任何统计。</p>
+      <p className="sample-note">以下为设计测试样例，独立于大屏监控对象，不计入任何统计。点击任一图标可查看历史数据。</p>
       <div className="sample-grid">
         {samples.map(({ caption, device }) => (
           <figure key={device.id} className="sample-cell">
-            <DeviceUnit device={device} now={sampleNow} />
+            <DeviceUnit device={device} now={sampleNow} onOpen={onOpen} />
             <figcaption>{caption}</figcaption>
           </figure>
         ))}
@@ -81,7 +90,7 @@ export function countStatuses(devices: MonitorDevice[]) {
   }, { normal: 0, error: 0, offline: 0, unknown: 0 })
 }
 
-function RegionPanel({ region, devices, now }: { region: Region; devices: MonitorDevice[]; now: number }) {
+function RegionPanel({ region, devices, now, onOpen }: { region: Region; devices: MonitorDevice[]; now: number; onOpen: OpenHandler }) {
   const ordered = useMemo(() => sortDevices(devices), [devices])
   const counts = useMemo(() => countStatuses(devices), [devices])
   const hasAlert = counts.error > 0
@@ -110,7 +119,7 @@ function RegionPanel({ region, devices, now }: { region: Region; devices: Monito
         </div>
       </header>
       <div className="device-grid">
-        {ordered.map((device) => <DeviceUnit key={device.id} device={device} now={now} />)}
+        {ordered.map((device) => <DeviceUnit key={device.id} device={device} now={now} onOpen={onOpen} />)}
       </div>
     </section>
   )
@@ -120,6 +129,7 @@ export default function MonitorDashboard() {
   const demo = useDemoState()
   const [now, setNow] = useState(() => Date.now())
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [selected, setSelected] = useState<MonitorDevice | null>(null)
   const legendRef = useRef<HTMLDialogElement>(null)
   const palette = demo?.palette ?? 'harbor'
   const refreshSeconds = demo?.settings.refreshSeconds ?? 10
@@ -147,6 +157,9 @@ export default function MonitorDashboard() {
     [devices, regions],
   )
 
+  const liveSelected = selected ? devices.find((device) => device.id === selected.id) ?? selected : null
+  const selectedRegion = liveSelected ? regions.find((region) => region.id === liveSelected.regionId)?.name ?? (liveSelected.regionId === 'sample' ? '图例样例' : undefined) : undefined
+
   const date = new Date(now)
   const dateText = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   const timeText = date.toLocaleTimeString('zh-CN', { hour12: false })
@@ -172,8 +185,9 @@ export default function MonitorDashboard() {
           <h2 id="legend-title">仪表图例与配色</h2>
           <button type="button" className="legend-close" onClick={() => legendRef.current?.close()} aria-label="关闭图例"><X size={14} /></button>
         </div>
-        <GaugeLegend palette={palette} onPaletteChange={(id) => demoApi.setPalette(id)} />
+        <GaugeLegend palette={palette} onPaletteChange={(id) => demoApi.setPalette(id)} onOpen={setSelected} />
       </dialog>
+      <DeviceHistoryDialog device={liveSelected} regionName={selectedRegion} now={now} onClose={() => setSelected(null)} />
       <header className="topbar">
         <div className="brand-lockup">
           <RoundIcon icon={Wifi} tone="tone-brand" />
@@ -213,7 +227,7 @@ export default function MonitorDashboard() {
       </section>
 
       <div className="zones-grid">
-        {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now} />)}
+        {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now} onOpen={setSelected} />)}
       </div>
     </main>
   )

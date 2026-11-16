@@ -1,4 +1,4 @@
-import type { DeviceType, MetricKind, MonitorDevice } from '@/lib/monitor-data'
+import { formatCount, formatRate, type DeviceType, type MetricKind, type MonitorDevice } from '@/lib/monitor-data'
 
 /** 测试数据：模拟 Zabbix 主机与监控项，不连接任何真实服务。 */
 
@@ -10,6 +10,7 @@ export type MockItem =
   | { id: string; hostId: string; role: 'status'; name: string; key: string; updatedAgoSec: number; sample: StatusSample }
   | { id: string; hostId: string; role: 'percent' | 'power'; name: string; key: string; label: string; updatedAgoSec: number; value: number | null }
   | { id: string; hostId: string; role: 'fault'; name: string; key: string; updatedAgoSec: number; active: boolean; message: string }
+  | { id: string; hostId: string; role: 'traffic'; name: string; key: string; updatedAgoSec: number; upload: number | null; download: number | null; connections: number | null }
 
 export const mockHosts: MockHost[] = [
   { id: 'h-term-01', name: '前台终端-01', ip: '10.20.3.21' },
@@ -42,6 +43,8 @@ export const mockItems: MockItem[] = [
   { id: 'i-ikuai-cpu', hostId: 'h-ikuai-a', role: 'percent', name: 'CPU 使用率', label: '使用率', key: 'system.cpu.util', updatedAgoSec: 5, value: 18 },
   { id: 'i-ikuai-wan1-bw', hostId: 'h-ikuai-a', role: 'percent', name: 'WAN1 带宽利用率', label: '带宽', key: 'net.if.util[wan1]', updatedAgoSec: 5, value: 47 },
   { id: 'i-ikuai-wan2-bw', hostId: 'h-ikuai-a', role: 'percent', name: 'WAN2 带宽利用率', label: '带宽', key: 'net.if.util[wan2]', updatedAgoSec: 5, value: null },
+  { id: 'i-ikuai-wan1-traffic', hostId: 'h-ikuai-a', role: 'traffic', name: 'WAN1 流量与连接', key: 'net.if.traffic[wan1]', updatedAgoSec: 5, upload: 38.4, download: 412, connections: 2150 },
+  { id: 'i-ikuai-wan2-traffic', hostId: 'h-ikuai-a', role: 'traffic', name: 'WAN2 流量与连接', key: 'net.if.traffic[wan2]', updatedAgoSec: 5, upload: null, download: 96, connections: 318 },
 
   { id: 'i-pdu01-ping', hostId: 'h-pdu-01', role: 'status', name: '电源板在线检查', key: 'icmpping', updatedAgoSec: 10, sample: { state: 'up' } },
   { id: 'i-pdu01-power', hostId: 'h-pdu-01', role: 'power', name: '总输出功率', label: '功率', key: 'pdu.power.total', updatedAgoSec: 10, value: 0 },
@@ -71,6 +74,10 @@ export function describeItemSample(item: MockItem): string {
       return '数据不可用'
     case 'fault':
       return item.active ? `触发：${item.message}` : '未触发'
+    case 'traffic': {
+      const rate = (value: number | null) => (value === null ? '—' : formatRate(value))
+      return `↑${rate(item.upload)} ↓${rate(item.download)} · ${item.connections === null ? '—' : formatCount(item.connections)} 连接`
+    }
     default:
       return item.value === null ? '无数据' : `${item.value}${item.role === 'power' ? ' W' : '%'}`
   }
@@ -82,7 +89,7 @@ export function formatUpdatedAgo(seconds: number): string {
   return `${Math.floor(seconds / 3600)} 小时前`
 }
 
-export type DisplayMode = 'status' | 'percent' | 'power'
+export type DisplayMode = 'status' | 'percent' | 'power' | 'traffic'
 
 export const KEEP_CURRENT = '__keep'
 
@@ -95,6 +102,8 @@ export type ProjectDraft = {
   mode: DisplayMode
   valueItemId: string
   powerMax: string
+  uploadMax: string
+  downloadMax: string
   allowOffline: boolean
   faultItemId: string
   order: string
@@ -112,6 +121,8 @@ export function draftFromDevice(device?: MonitorDevice, fallbackRegionId = ''): 
     mode,
     valueItemId: device?.valueItemId ?? (device && mode !== 'status' ? KEEP_CURRENT : ''),
     powerMax: String(device?.metricKind === 'power' ? device.metricMax ?? 200 : 200),
+    uploadMax: String(device?.uploadMax ?? 100),
+    downloadMax: String(device?.downloadMax ?? 1000),
     allowOffline: device?.allowOffline ?? false,
     faultItemId: device?.faultItemId ?? '',
     order: device?.order !== undefined ? String(device.order) : '',
@@ -160,6 +171,22 @@ export function resolveDraft(draft: ProjectDraft, id: string, now: number, exist
 
   if (draft.mode === 'status') return { ...base, metricKind: 'none' }
 
+  if (draft.mode === 'traffic') {
+    const ranges = { uploadMax: Number(draft.uploadMax) || 0, downloadMax: Number(draft.downloadMax) || 0 }
+    if (draft.valueItemId === KEEP_CURRENT && existing?.metricKind === 'traffic') {
+      return {
+        ...base, ...ranges, metricKind: 'traffic', metricLabel: '连接数', valueItemId: existing.valueItemId,
+        uploadValue: existing.uploadValue, downloadValue: existing.downloadValue, connections: existing.connections,
+      }
+    }
+    const item = getItem(draft.valueItemId)
+    const traffic = item?.role === 'traffic' ? item : undefined
+    return {
+      ...base, ...ranges, metricKind: 'traffic', metricLabel: '连接数', valueItemId: traffic?.id,
+      uploadValue: traffic?.upload ?? undefined, downloadValue: traffic?.download ?? undefined, connections: traffic?.connections ?? undefined,
+    }
+  }
+
   const max = draft.mode === 'percent' ? 100 : Number(draft.powerMax) || 0
   const unit = draft.mode === 'percent' ? '%' : 'W'
   if (draft.valueItemId === KEEP_CURRENT && existing?.metricKind === draft.mode) {
@@ -178,7 +205,7 @@ export function resolveDraft(draft: ProjectDraft, id: string, now: number, exist
   }
 }
 
-export type DraftErrors = Partial<Record<'name' | 'regionId' | 'hostId' | 'statusItemId' | 'valueItemId' | 'powerMax' | 'order', string>>
+export type DraftErrors = Partial<Record<'name' | 'regionId' | 'hostId' | 'statusItemId' | 'valueItemId' | 'powerMax' | 'uploadMax' | 'downloadMax' | 'order', string>>
 
 export function validateDraft(draft: ProjectDraft, existing?: MonitorDevice): DraftErrors {
   const errors: DraftErrors = {}
@@ -194,6 +221,11 @@ export function validateDraft(draft: ProjectDraft, existing?: MonitorDevice): Dr
   if (draft.mode === 'power') {
     const max = Number(draft.powerMax)
     if (!draft.powerMax.trim() || !Number.isFinite(max) || max <= 0) errors.powerMax = '满量程需大于 0'
+  }
+  if (draft.mode === 'traffic') {
+    const positive = (raw: string) => raw.trim() !== '' && Number.isFinite(Number(raw)) && Number(raw) > 0
+    if (!positive(draft.uploadMax)) errors.uploadMax = '上传量程需大于 0'
+    if (!positive(draft.downloadMax)) errors.downloadMax = '下载量程需大于 0'
   }
   if (draft.order.trim() !== '') {
     const order = Number(draft.order)

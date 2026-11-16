@@ -1,7 +1,7 @@
 export type DeviceType = 'server' | 'line' | 'router' | 'power' | 'terminal'
 export type DeviceStatus = 'normal' | 'error' | 'offline' | 'unknown'
 
-export type MetricKind = 'percent' | 'power' | 'none'
+export type MetricKind = 'percent' | 'power' | 'traffic' | 'none'
 
 export type DeviceMetric = {
   metricKind: MetricKind
@@ -9,6 +9,24 @@ export type DeviceMetric = {
   metricValue?: number
   metricUnit?: string
   metricMax?: number
+  /** traffic：上传 / 下载速率（Mbps）与各自量程，圆心为当前连接数 */
+  uploadValue?: number
+  uploadMax?: number
+  downloadValue?: number
+  downloadMax?: number
+  connections?: number
+}
+
+export function formatRate(mbps: number): string {
+  if (mbps >= 1000) return `${(mbps / 1000).toFixed(mbps >= 10_000 ? 0 : 1)}G`
+  if (mbps >= 100) return `${Math.round(mbps)}M`
+  return `${mbps.toFixed(mbps < 10 ? 1 : 0)}M`
+}
+
+export function formatCount(count: number): string {
+  if (count >= 100_000) return `${Math.round(count / 1000)}k`
+  if (count >= 10_000) return `${(count / 1000).toFixed(1)}k`
+  return String(Math.round(count))
 }
 
 export type MonitorDevice = {
@@ -56,7 +74,15 @@ export function getDemoMetric(id: string, type: DeviceType): DeviceMetric {
     case 'server':
       return { metricKind: 'percent', metricLabel: 'CPU', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 18, 72) }
     case 'router':
-      return { metricKind: 'percent', metricLabel: '使用率', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 15, 55) }
+      return {
+        metricKind: 'traffic',
+        metricLabel: '连接数',
+        uploadMax: 100,
+        downloadMax: 1000,
+        uploadValue: pick(`${id}:up`, 8, 86, 1),
+        downloadValue: pick(`${id}:down`, 120, 720),
+        connections: pick(`${id}:conn`, 260, 3800),
+      }
     case 'line':
       return { metricKind: 'percent', metricLabel: '带宽', metricUnit: '%', metricMax: 100, metricValue: showcase ?? pick(id, 20, 80) }
     case 'power':
@@ -170,7 +196,10 @@ export function migrateCachedDevices(saved: MonitorDevice[]): MonitorDevice[] {
   const seed = new Map(createDemoDevices(0).map((device) => [device.id, device]))
   return saved.map((device) => {
     const original = seed.get(device.id)
-    const next = withDemoMetric(device)
+    const isLegacyRouterDemo = device.type === 'router' && device.metricKind === 'percent' && !device.valueItemId && device.metricLabel === '使用率'
+    const next = isLegacyRouterDemo
+      ? { ...device, metricValue: undefined, metricUnit: undefined, metricMax: undefined, ...getDemoMetric(device.id, 'router') }
+      : withDemoMetric(device)
     if (original && next.statusAvailable === undefined && original.statusAvailable !== undefined) {
       return { ...next, statusAvailable: original.statusAvailable }
     }
