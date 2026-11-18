@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -17,76 +18,78 @@ import {
 } from 'lucide-react'
 import {
   getDeviceStatus,
-  getVisibleDevices,
+  formatSampleTime,
   sortDevices,
   sortRegions,
   type DeviceStatus,
-  type MonitorDevice,
-  type Region,
 } from '@/lib/monitor-data'
-import { demoApi, syncFromStorage, useDemoState, type PaletteId } from '@/lib/demo-store'
-import { DeviceUnit, RoundIcon, palettes, statusMeta } from '@/components/device-gauge'
+import { DEFAULT_SETTINGS, type MonitorSnapshot, type Region, type SnapshotDevice } from '@/lib/contracts'
+import { DeviceUnit, RoundIcon, statusMeta } from '@/components/device-gauge'
+import { DeviceHistoryDialog } from '@/components/device-history-dialog'
+import { useMonitorSnapshot } from '@/components/use-monitor-snapshot'
 
-function GaugeLegend({ palette, onPaletteChange }: { palette: PaletteId; onPaletteChange: (id: PaletteId) => void }) {
-  const [sampleNow] = useState(() => Date.now())
-  const base = { regionId: 'sample', reachable: true, hasFault: false, allowOffline: false }
-  const percent = { metricKind: 'percent' as const, metricLabel: 'CPU', metricUnit: '%', metricMax: 100 }
-  const samples: { caption: string; device: MonitorDevice }[] = [
-    { caption: '低值 · 正常', device: { ...base, ...percent, id: 's1', name: '样例-低值', type: 'server', metricValue: 1 } },
-    { caption: '满负荷 · 正常', device: { ...base, ...percent, id: 's2', name: '样例-满载', type: 'server', metricValue: 100 } },
-    { caption: '功率 200/200W', device: { ...base, id: 's3', name: '样例-功率', type: 'power', metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: 200 } },
-    { caption: '在线 · 无指标', device: { ...base, id: 's4', name: '样例-终端', type: 'terminal', metricKind: 'none' } },
-    { caption: '在线 · 数据缺失', device: { ...base, ...percent, id: 's5', name: '样例-缺数', type: 'server' } },
-    { caption: '在线故障', device: { ...base, id: 's6', name: '样例-故障', type: 'power', metricKind: 'power', metricLabel: '功率', metricUnit: 'W', metricMax: 200, metricValue: 42.5, hasFault: true, faultMessage: '供电异常' } },
-    { caption: '需在线却离线', device: { ...base, ...percent, id: 's7', name: '样例-告警离线', type: 'line', metricLabel: '带宽', reachable: false, offlineSince: sampleNow - 25 * 60_000 } },
-    { caption: '允许离线', device: { ...base, id: 's8', name: '样例-允许离线', type: 'terminal', metricKind: 'none', reachable: false, allowOffline: true, offlineSince: sampleNow - 3 * 60 * 60_000 } },
-    { caption: '状态未知', device: { ...base, id: 's9', name: '样例-未知', type: 'terminal', metricKind: 'none', reachable: false, statusAvailable: false } },
-  ]
-
+function GaugeLegend() {
   return (
     <div className="legend-body">
-      <fieldset className="palette-picker">
-        <legend>配色方案</legend>
-        {palettes.map((item) => (
-          <label key={item.id} className={`palette-option ${palette === item.id ? 'is-selected' : ''}`}>
-            <input type="radio" name="gauge-palette" value={item.id} checked={palette === item.id} onChange={() => onPaletteChange(item.id)} />
-            <span className="palette-swatches" aria-hidden="true">
-              {item.swatches.map((color) => <i key={color} style={{ background: color }} />)}
-            </span>
-            <span className="palette-text"><b>{item.name}</b><small>{item.note}</small></span>
-          </label>
-        ))}
-      </fieldset>
       <div className="legend-key">
-        <span><i className="key-load" />内环 + 中心数字 = 实际负荷（真实比例）</span>
-        <span><i className="key-status" />外环 + 右下圆形徽标 = 运行状态</span>
+        <span><i className="key-load" />内环表示有量程的指标比例，中心显示读数</span>
+        <span>负载由低到高从绿色渐变到橙色。</span>
+        <span>流量仪表：上传在上、下载在下，连接数居中。未设置实际带宽时不显示对应的占用弧线。</span>
       </div>
-      <p className="sample-note">以下为设计测试样例，独立于大屏监控对象，不计入任何统计。</p>
-      <div className="sample-grid">
-        {samples.map(({ caption, device }) => (
-          <figure key={device.id} className="sample-cell">
-            <DeviceUnit device={device} now={sampleNow} />
-            <figcaption>{caption}</figcaption>
-          </figure>
+      <div className="legend-key">
+        <span>外环与徽标表示状态</span>
+        {Object.values(statusMeta).map(({ label, tone, icon }) => (
+          <span key={tone}><RoundIcon icon={icon} tone={tone} size="sm" />{label}</span>
         ))}
       </div>
     </div>
   )
 }
 
-export function countStatuses(devices: MonitorDevice[]) {
+function SourceBadge({ snapshot, failed }: { snapshot?: MonitorSnapshot; failed: boolean }) {
+  const source = snapshot?.source
+  const stale = snapshot?.devices.some((device) => !device.hidden && device.statusReason === 'status_stale')
+  const [label, tone] = failed ? ['监控服务连接中断', 'tone-unknown']
+    : source?.ikuai?.status === 'unavailable' ? ['爱快 API 不可用', 'tone-unknown']
+    : source?.status === 'ok' && stale ? ['采集数据过期', 'tone-unknown']
+    : source?.status === 'ok' ? [source.ikuai ? 'Zabbix / 爱快 API 正常' : 'Zabbix 连接正常', 'tone-normal']
+    : source?.status === 'not_configured' ? ['数据源未配置', 'tone-unknown']
+    : source?.status === 'unavailable' ? ['Zabbix 不可用', 'tone-unknown']
+    : source?.status === 'empty' ? ['暂无监控数据', 'tone-offline']
+    : ['正在连接监控服务', 'tone-brand']
+  const reason = source?.code && { connection: '连接失败', auth: '认证失败', permission: '权限不足', no_items: '无可用采样' }[source.code]
+  const checkedAt = source?.ikuai?.checkedAt ?? source?.checkedAt
+  return (
+    <span className={'source-badge ' + tone} title={reason}>
+      <i aria-hidden="true" />
+      {label}
+      {checkedAt !== undefined && <time dateTime={new Date(checkedAt).toISOString()} title={'数据源检查时间 ' + formatSampleTime(checkedAt)}>{new Date(checkedAt).toLocaleTimeString('zh-CN', { hour12: false })}</time>}
+    </span>
+  )
+}
+
+export function countStatuses(devices: SnapshotDevice[]) {
   return devices.reduce<Record<DeviceStatus, number>>((acc, device) => {
     acc[getDeviceStatus(device)] += 1
     return acc
   }, { normal: 0, error: 0, offline: 0, unknown: 0 })
 }
 
-function RegionPanel({ region, devices, now }: { region: Region; devices: MonitorDevice[]; now: number }) {
+function RegionPanel({ region, devices, now, onHistory }: { region: Region; devices: SnapshotDevice[]; now: number; onHistory?: (id: string) => void }) {
   const ordered = useMemo(() => sortDevices(devices), [devices])
+  const groups = new Map<string, SnapshotDevice[]>()
+  for (const device of ordered) {
+    const key = device.deviceGroup ?? device.id
+    const group = groups.get(key)
+    if (group) group.push(device)
+    else groups.set(key, [device])
+  }
   const counts = useMemo(() => countStatuses(devices), [devices])
   const hasAlert = counts.error > 0
   const hasUnknown = counts.unknown > 0
-  const regionState = hasAlert
+  const regionState = devices.length === 0
+    ? { text: '暂无项目', tone: 'tone-offline', icon: PowerOff }
+    : hasAlert
     ? { text: '需要处理', tone: 'tone-error', icon: AlertTriangle }
     : hasUnknown
       ? { text: '存在未知', tone: 'tone-unknown', icon: HelpCircle }
@@ -109,52 +112,62 @@ function RegionPanel({ region, devices, now }: { region: Region; devices: Monito
           {regionState.text}
         </div>
       </header>
-      <div className="device-grid">
-        {ordered.map((device) => <DeviceUnit key={device.id} device={device} now={now} />)}
-      </div>
+      {Array.from(groups, ([key, members]) => (
+        <div className="host-row" key={key}>
+          <strong className="host-name">{members.find(device => device.deviceName)?.deviceName ?? members[0].name}</strong>
+          <div className={key.startsWith('group:') ? 'device-grid named-group' : 'device-grid'}>
+            {members.map(device => <DeviceUnit key={device.id} device={device} now={now}
+              onHistory={onHistory && device.liveSource !== 'ikuai' ? () => onHistory(device.id) : undefined} />)}
+          </div>
+        </div>
+      ))}
     </section>
   )
 }
 
 export default function MonitorDashboard() {
-  const demo = useDemoState()
-  const [now, setNow] = useState(() => Date.now())
+  const { snapshot, clockOffset, failed } = useMonitorSnapshot('/api/snapshot')
+  const [localTime, setLocalTime] = useState<number>()
+  useEffect(() => {
+    const tick = () => setLocalTime(Date.now())
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const now = snapshot && (localTime === undefined ? snapshot.serverTime : Math.max(snapshot.serverTime, localTime + clockOffset))
+  return <DashboardView snapshot={snapshot} now={now} failed={failed} />
+}
+
+export function DashboardView({ snapshot, now = snapshot?.serverTime, failed, demo = false }: { snapshot?: MonitorSnapshot; now?: number; failed: boolean; demo?: boolean }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [selectedId, setSelectedId] = useState<string>()
   const legendRef = useRef<HTMLDialogElement>(null)
-  const palette = demo?.palette ?? 'harbor'
-  const refreshSeconds = demo?.settings.refreshSeconds ?? 10
+  const settings = snapshot?.settings ?? DEFAULT_SETTINGS
+  const style = { '--columns': settings.columns, '--gauge-scale': settings.gaugeSize / 100 } as CSSProperties
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
     document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => {
-      window.clearInterval(timer)
-      document.removeEventListener('fullscreenchange', onFullscreenChange)
-    }
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
 
-  useEffect(() => {
-    const timer = window.setInterval(syncFromStorage, Math.max(1, refreshSeconds) * 1000)
-    return () => window.clearInterval(timer)
-  }, [refreshSeconds])
-
-  const devices = useMemo(() => getVisibleDevices(demo?.devices ?? []), [demo?.devices])
-  const regions = useMemo(() => sortRegions(demo?.regions ?? []), [demo?.regions])
+  const devices = useMemo(() => snapshot?.devices.filter((device) => !device.hidden) ?? [], [snapshot?.devices])
+  const historyDevice = devices.find((device) => device.id === selectedId && device.liveSource !== 'ikuai')
+  const regions = useMemo(() => sortRegions(snapshot?.regions ?? []), [snapshot?.regions])
   const summary = useMemo(() => countStatuses(devices), [devices])
   const devicesByRegion = useMemo(
     () => Object.fromEntries(regions.map((region) => [region.id, devices.filter((device) => device.regionId === region.id)])),
     [devices, regions],
   )
 
-  const date = new Date(now)
-  const dateText = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  const timeText = date.toLocaleTimeString('zh-CN', { hour12: false })
+  const date = now === undefined ? undefined : new Date(now)
+  const dateText = date && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const timeText = date?.toLocaleTimeString('zh-CN', { hourCycle: 'h23' })
   const total = devices.length
 
   function toggleFullscreen() {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.()
-    else document.exitFullscreen?.()
+    if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => {})
+    else void document.exitFullscreen?.().catch(() => {})
   }
 
   const stats = [
@@ -166,34 +179,35 @@ export default function MonitorDashboard() {
   ]
 
   return (
-    <main className="monitor-shell" data-palette={palette}>
+    <main className="monitor-shell" data-palette={settings.palette} style={style}>
       <dialog ref={legendRef} className="legend-dialog" aria-labelledby="legend-title" onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close() }}>
         <div className="legend-head">
-          <h2 id="legend-title">仪表图例与配色</h2>
+          <h2 id="legend-title">仪表图例</h2>
           <button type="button" className="legend-close" onClick={() => legendRef.current?.close()} aria-label="关闭图例"><X size={14} /></button>
         </div>
-        <GaugeLegend palette={palette} onPaletteChange={(id) => demoApi.setPalette(id)} />
+        <GaugeLegend />
       </dialog>
+      <DeviceHistoryDialog device={historyDevice} version={snapshot?.version} onClose={() => setSelectedId(undefined)} />
       <header className="topbar">
         <div className="brand-lockup">
           <RoundIcon icon={Wifi} tone="tone-brand" />
           <h1>区域设备状态监控中心</h1>
         </div>
         <div className="topbar-actions">
-          <div className="clock"><span suppressHydrationWarning>{dateText}</span><strong suppressHydrationWarning>{timeText}</strong></div>
-          <span className="demo-badge"><i />演示数据</span>
+          <div className="clock">{date ? <time dateTime={date.toISOString()}><span>{dateText}</span><strong>{timeText}</strong></time> : <strong aria-label="等待服务器时间">—</strong>}</div>
+          {demo ? <span className="source-badge tone-brand"><i />演示 · 虚构数据</span> : <SourceBadge snapshot={snapshot} failed={failed} />}
           <button type="button" className="fullscreen-button" onClick={() => legendRef.current?.showModal()}>
             <span className="button-icon"><Palette size={13} /></span>
-            图例 · 配色
+            仪表图例
           </button>
           <button type="button" className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? '退出全屏' : '全屏显示'}>
             <span className="button-icon">{isFullscreen ? <Shrink size={13} /> : <Expand size={13} />}</span>
             {isFullscreen ? '退出全屏' : '全屏显示'}
           </button>
-          <Link href="/admin/projects" className="admin-entry" title="管理后台">
+          {!demo && <Link href="/admin/projects" className="admin-entry" title="管理后台">
             <Settings2 size={13} aria-hidden="true" />
             管理后台
-          </Link>
+          </Link>}
         </div>
       </header>
 
@@ -212,8 +226,13 @@ export default function MonitorDashboard() {
         </div>
       </section>
 
+      {total === 0 && (
+        <p className="monitor-empty" role="status">
+          {failed ? '连接监控服务失败，正在重试。' : snapshot ? '暂无监控项目' : '正在读取监控状态…'}
+        </p>
+      )}
       <div className="zones-grid">
-        {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now} />)}
+        {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now ?? 0} onHistory={demo ? undefined : setSelectedId} />)}
       </div>
     </main>
   )
