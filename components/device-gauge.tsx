@@ -40,6 +40,7 @@ const normalText: Record<DeviceType, string> = {
 const STATUS_RING_RADIUS = 46
 const LOAD_RING_RADIUS = 37
 const LOAD_CIRCUMFERENCE = 2 * Math.PI * LOAD_RING_RADIUS
+const gaugeColors = { green: '#56c991', yellow: '#f5cf49', red: '#f46059' }
 
 export const palettes: { id: PaletteId; name: string; note: string; swatches: string[] }[] = [
   { id: 'harbor', name: '港湾蓝', note: '默认 · 冷色负荷，暖色告警', swatches: ['#5cc8ec', '#56c9a0', '#ff5b69', '#f2b24a'] },
@@ -182,15 +183,15 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">
-            <stop stopColor="#56c9a0" /><stop offset="1" stopColor="#f59e0b" />
+            <stop stopColor={gaugeColors.green} /><stop offset=".5" stopColor={gaugeColors.yellow} /><stop offset="1" stopColor={gaugeColors.red} />
           </linearGradient>
           {reading.kind === 'value' && (
             <>
               <linearGradient id={gradientId + '-first'} gradientUnits="userSpaceOnUse" x1="50" y1="13" x2="50" y2="87">
-                <stop stopColor="#56c9a0" /><stop offset="1" stopColor="#a6b456" />
+                <stop stopColor={gaugeColors.green} /><stop offset="1" stopColor={gaugeColors.yellow} />
               </linearGradient>
               <linearGradient id={gradientId + '-second'} gradientUnits="userSpaceOnUse" x1="50" y1="87" x2="50" y2="13">
-                <stop stopColor="#a6b456" /><stop offset="1" stopColor="#f59e0b" />
+                <stop stopColor={gaugeColors.yellow} /><stop offset="1" stopColor={gaugeColors.red} />
               </linearGradient>
               <mask id={gradientId + '-progress'} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
                 <circle className="gauge-load" cx="50" cy="50" r={LOAD_RING_RADIUS} transform="rotate(-90 50 50)" />
@@ -198,7 +199,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
             </>
           )}
         </defs>
-        <circle className="gauge-status-ring" cx="50" cy="50" r={STATUS_RING_RADIUS} />
+        <circle className="gauge-status-ring" cx="50" cy="50" r={STATUS_RING_RADIUS} stroke={`url(#${gradientId})`} />
         <circle className="gauge-face" cx="50" cy="50" r="41" />
         {halves ? (
           (['up', 'down'] as const).map((half) => {
@@ -213,7 +214,8 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
           })
         ) : (
           <>
-            <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS} />
+            <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS}
+              style={latency === undefined ? undefined : { stroke: `url(#${gradientId})` }} />
             {reading.kind === 'value' && (
               <g className="gauge-progress" mask={`url(#${gradientId}-progress)`} fill="none" strokeWidth="4.5">
                 <path d="M50 13 A37 37 0 0 1 50 87" stroke={`url(#${gradientId}-first)`} />

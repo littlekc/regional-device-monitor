@@ -33,12 +33,12 @@ function GaugeLegend() {
     <div className="legend-body">
       <div className="legend-key">
         <span><i className="key-load" />内环表示有量程的指标比例，中心显示读数</span>
-        <span>负载由低到高从绿色渐变到橙色。</span>
-        <span>延时读数和内圈按毫秒着色：20 ms 及以下为绿，逐渐过渡到 100 ms 及以上的橙黄。</span>
+        <span>进度从低到高依次经过绿、黄、红。</span>
+        <span>延时数字在 20 ms 及以下为绿，逐渐过渡到 100 ms 及以上的橙黄。</span>
         <span>流量仪表：上传在上、下载在下，连接数居中。未设置实际带宽时不显示对应的占用弧线。</span>
       </div>
       <div className="legend-key">
-        <span>外环与徽标表示状态</span>
+        <span>状态请看徽标和外环线型：正常为细实线，异常为粗实线，离线为虚线，未知为点线。</span>
         {Object.values(statusMeta).map(({ label, tone, icon }) => (
           <span key={tone}><RoundIcon icon={icon} tone={tone} size="sm" />{label}</span>
         ))}

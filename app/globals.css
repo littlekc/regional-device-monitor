@@ -172,13 +172,13 @@ h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: .12em; font-w
    Inner ring + center number = load (green through orange).
    Outer ring + corner badge = operating status (shape + icon + color). */
 .gauge {
-  --ring: color-mix(in oklab, var(--normal) 55%, transparent);
+  --ring-opacity: .65;
   --ring-width: 1.6;
   --ring-dash: none;
   position: relative; flex: 0 0 auto; width: var(--gauge-size, var(--gauge-base-size)); height: var(--gauge-size, var(--gauge-base-size)); border-radius: 50%;
 }
 .gauge > svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.gauge-status-ring { fill: none; stroke: var(--ring); stroke-width: var(--ring-width); stroke-dasharray: var(--ring-dash); }
+.gauge-status-ring { fill: none; stroke-opacity: var(--ring-opacity); stroke-width: var(--ring-width); stroke-dasharray: var(--ring-dash); }
 .gauge-face { fill: var(--gauge-disk); }
 .gauge-load-track { fill: none; stroke: color-mix(in oklab, var(--load) 14%, transparent); stroke-width: 4.5; }
 .gauge-load { fill: none; stroke: white; stroke-width: 5.5; stroke-dasharray: var(--load-dash); }
@@ -229,20 +229,20 @@ h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: .12em; font-w
 
 /* Status variants */
 .gauge.gs-error, .gauge.gs-error-offline {
-  --ring: var(--error); --ring-width: 3.6;
+  --ring-opacity: 1; --ring-width: 3.6;
   --badge-bg: var(--error); --badge-fg: var(--panel); --badge-line: var(--error);
   filter: drop-shadow(0 0 7px color-mix(in oklab, var(--error) 42%, transparent));
 }
 .gauge.gs-error .gauge-face, .gauge.gs-error-offline .gauge-face { fill: color-mix(in oklab, var(--error) 10%, var(--gauge-disk)); }
 .gauge.gs-error-offline .gauge-center > svg, .gauge.gs-error-offline .gauge-label { color: var(--error); }
 .gauge.gs-offline {
-  --ring: color-mix(in oklab, var(--offline) 55%, transparent); --ring-width: 1.4; --ring-dash: 3 4;
+  --ring-opacity: .3; --ring-width: 1.4; --ring-dash: 3 4;
   --badge-fg: var(--offline); --badge-line: color-mix(in oklab, var(--offline) 55%, transparent);
 }
 .gauge.gs-offline .gauge-face { fill: color-mix(in oklab, var(--gauge-disk) 70%, transparent); }
 .gauge.gs-offline .gauge-center { opacity: .75; }
 .gauge.gs-unknown {
-  --ring: var(--unknown); --ring-width: 2.2; --ring-dash: .1 5.2;
+  --ring-opacity: .8; --ring-width: 2.2; --ring-dash: .1 5.2;
   --badge-fg: var(--unknown); --badge-line: color-mix(in oklab, var(--unknown) 70%, transparent);
 }
 .gauge.gs-unknown .gauge-status-ring { stroke-linecap: round; }
