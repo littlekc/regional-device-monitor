@@ -1,4 +1,4 @@
-export type DeviceType = 'server' | 'line' | 'router' | 'power' | 'terminal'
+export type DeviceType = 'server' | 'line' | 'router' | 'power' | 'terminal' | 'battery'
 export type Region = { id: string; name: string; order: number }
 
 export const PALETTE_IDS = ['harbor', 'titanium', 'jade'] as const

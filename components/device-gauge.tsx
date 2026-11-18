@@ -34,6 +34,7 @@ const normalText: Record<DeviceType, string> = {
   router: '运行正常',
   line: '链路正常',
   power: '供电正常',
+  battery: '设备在线',
   terminal: '设备在线',
 }
 
@@ -67,7 +68,7 @@ export function RoundIcon({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon;
 }
 
 export type GaugeReading =
-  | { kind: 'value'; value: string; unit: string; label?: string; progress: number; latencyMs?: number }
+  | { kind: 'value'; value: string; unit: string; label?: string; progress: number; latencyMs?: number; batteryPercent?: number }
   | TrafficReading
   | ResourceReading
   | { kind: 'online' }
@@ -124,6 +125,10 @@ export function getReading(device: SnapshotDevice, status: DeviceStatus = getDev
   const progress = max && max > 0 ? Math.min(1, Math.max(0, device.metricValue / max)) : 0
   const unit = device.metricKind === 'percent' ? '%' : device.metricUnit ?? ''
   const amount = device.metricValue
+  if (device.type === 'battery' && device.metricKind === 'percent') {
+    if (amount < 0 || amount > 100) return { kind: 'missing', label: device.metricLabel }
+    return { kind: 'value', value: String(Number(amount.toFixed(1))), unit, label: device.metricLabel, progress, batteryPercent: amount }
+  }
   if (device.metricKind === 'raw' && unit === 'ms') return { kind: 'value', value: String(Math.round(amount)), unit, label: device.metricLabel, progress, latencyMs: amount }
   if (device.metricKind === 'rate') {
     const multiplier = rateMultiplier(unit)
@@ -162,13 +167,13 @@ function halfArc(half: 'up' | 'down', progress: number) {
 
 const compactCount = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumSignificantDigits: 3 })
 
-function latencyColor(ms: number): string {
-  if (ms <= 100) return gaugeColors.green
-  if (ms >= 500) return gaugeColors.red
-  const lowerHalf = ms <= 300
+function severityColor(level: number): string {
+  if (level <= 0) return gaugeColors.green
+  if (level >= 1) return gaugeColors.red
+  const lowerHalf = level <= 0.5
   const from = lowerHalf ? gaugeColors.green : gaugeColors.yellow
   const to = lowerHalf ? gaugeColors.yellow : gaugeColors.red
-  const percent = (ms - (lowerHalf ? 100 : 300)) / 200 * 100
+  const percent = (level - (lowerHalf ? 0 : 0.5)) * 200
   return `color-mix(in srgb, ${from}, ${to} ${percent}%)`
 }
 
@@ -177,9 +182,11 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
   const BadgeIcon = statusBadgeIcon[gaugeStatus]
   const progress = reading.kind === 'value' ? reading.progress : 0
   const latency = reading.kind === 'value' ? reading.latencyMs : undefined
+  const battery = reading.kind === 'value' ? reading.batteryPercent : undefined
+  const level = battery !== undefined ? (80 - battery) / 60 : latency !== undefined ? (latency - 100) / 400 : undefined
   const style = {
     '--load-dash': `${LOAD_CIRCUMFERENCE * progress} ${LOAD_CIRCUMFERENCE}`,
-    ...(latency === undefined ? {} : { '--latency-color': latencyColor(latency) }),
+    ...(level === undefined ? {} : { '--reading-color': severityColor(level) }),
   } as CSSProperties
   const traffic = split?.kind === 'traffic' ? split : undefined
   const resources = split?.kind === 'resources' ? split : undefined
@@ -188,7 +195,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
     : traffic ? { up: traffic.upload, down: traffic.download } : undefined
 
   return (
-    <span className={`gauge gs-${gaugeStatus} gr-${reading.kind}${latency === undefined ? '' : ' is-latency'}`} style={style} role="img" aria-label={ariaLabel}>
+    <span className={`gauge gs-${gaugeStatus} gr-${reading.kind}${battery !== undefined ? ' is-battery' : latency !== undefined ? ' is-latency' : ''}`} style={style} role="img" aria-label={ariaLabel}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">

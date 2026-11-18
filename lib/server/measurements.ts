@@ -62,11 +62,12 @@ export function scalarSample(project: MonitorProject, item: CatalogItem, raw: st
   const value = parseNumber(raw)
   if (value === undefined || project.metric.kind === 'none' || project.metric.kind === 'traffic' || project.metric.kind === 'resources') return
   if (project.metric.kind !== 'percent') return value
-  if (project.metric.capacity !== undefined) {
-    const percent = (value / project.metric.capacity) * 100
-    return Number.isFinite(percent) ? percent : undefined
-  }
-  return item.units.trim() === '%' ? value : undefined
+  const percent = project.metric.capacity !== undefined
+    ? (value / project.metric.capacity) * 100
+    : item.units.trim() === '%' ? value : undefined
+  if (percent === undefined || !Number.isFinite(percent)) return
+  if (project.type === 'battery' && (percent < 0 || percent > 100)) return
+  return percent
 }
 
 export function displayUnit(project: MonitorProject, item?: CatalogItem): string | undefined {

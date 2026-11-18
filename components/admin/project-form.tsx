@@ -222,7 +222,10 @@ export function ProjectForm({ project, hidden = project?.hidden ?? false, readin
               </select>
             </Field>
             <Field id="pf-type" label="设备类型">
-              <select disabled={nativeOnly} id="pf-type" className="input" value={draft.type} onChange={(event) => patch({ type: event.target.value as DeviceType })}>
+              <select disabled={nativeOnly} id="pf-type" className="input" value={draft.type} onChange={(event) => {
+                const type = event.target.value as DeviceType
+                patch(type === 'battery' ? { ...metricModeChange(mode, 'percent'), type, label: '剩余电量', valueItemId: '', capacity: '' } : { type })
+              }}>
                 {(Object.keys(adminTypeLabels) as DeviceType[]).map((type) => <option key={type} value={type}>{adminTypeLabels[type]}</option>)}
               </select>
             </Field>
@@ -250,7 +253,7 @@ export function ProjectForm({ project, hidden = project?.hidden ?? false, readin
         <section className="form-section" aria-labelledby="pf-display">
           <h3 id="pf-display">圆图显示</h3>
           <div className="segmented" role="radiogroup" aria-label="显示内容">
-            {modes.map((item) => (
+            {modes.filter(item => draft.type !== 'battery' || item.value === 'percent').map((item) => (
               <label key={item.value} className={`segment ${mode === item.value ? 'is-selected' : ''}`}>
                 <input type="radio" name="pf-mode" value={item.value} checked={mode === item.value} onChange={() => changeMode(item.value)} />
                 <b>{item.label}</b>

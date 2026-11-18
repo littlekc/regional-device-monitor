@@ -11,7 +11,7 @@ import {
 import { invalid } from './errors.ts'
 import { isIP } from 'node:net'
 
-const types = ['server', 'line', 'router', 'power', 'terminal'] as const
+const types = ['server', 'line', 'router', 'power', 'terminal', 'battery'] as const
 const metricKinds = ['none', 'percent', 'power', 'raw', 'rate', 'traffic', 'resources'] as const
 const trafficFields = ['uploadItemId', 'downloadItemId', 'connectionsItemId', 'connectionsScope', 'uploadMax', 'downloadMax'] as const
 const resourceFields = ['cpuItemId', 'memoryItemId'] as const
@@ -191,6 +191,7 @@ export function projectInput(input: unknown, nativeOnly = false): MonitorProject
   const onlineAddress = optionalText(value.onlineAddress, 'onlineAddress', 64)
   if (onlineAddress && !isIP(onlineAddress)) invalid('onlineAddress', '请填写有效的 IP 地址。')
   const metric = metricInput(value.metric, nativeOnly)
+  if (value.type === 'battery' && metric.kind !== 'percent') invalid('metric.kind', '电池电量需要百分比指标。')
   const valueItemId = value.valueItemId === undefined ? undefined : sourceId(value.valueItemId, 'valueItemId')
   const scalar = isScalarMetric(metric.kind)
   if (!scalar && valueItemId) invalid('valueItemId', '此显示模式不使用单项数值绑定。')

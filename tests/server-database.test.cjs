@@ -171,3 +171,20 @@ test('bootstrap and backup CLI preserve data and keep password out of output', (
     primary.close()
   }
 })
+test('battery projects persist as percentages and reject implausible charge samples', () => {
+  const { projectInput } = require('../lib/server/validation.ts')
+  const { scalarSample } = require('../lib/server/measurements.ts')
+  const battery = { ...project, type: 'battery', metric: { kind: 'percent' }, valueItemId: '25' }
+  assert.equal(projectInput(battery).type, 'battery')
+  assert.throws(() => projectInput({ ...battery, metric: { kind: 'raw' } }), { field: 'metric.kind' })
+  const db = new MonitorDatabase(':memory:')
+  try {
+    db.createRegion(0, region)
+    db.createProject(1, battery)
+    assert.equal(db.readConfig().projects[0].type, 'battery')
+  } finally { db.close() }
+  for (const charge of [0, 20, 50, 80, 100]) assert.equal(scalarSample(battery, { units: '%' }, String(charge)), charge)
+  for (const raw of ['-1', '101', '']) assert.equal(scalarSample(battery, { units: '%' }, raw), undefined)
+  const byCapacity = { ...battery, metric: { kind: 'percent', capacity: 2000 } }
+  assert.equal(scalarSample(byCapacity, { units: 'mAh' }, '500'), 25)
+})

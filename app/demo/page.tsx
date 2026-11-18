@@ -26,6 +26,7 @@ function snapshot(tick: number): MonitorSnapshot {
   const wave = Math.sin(tick / 3)
   add('lab', '应用服务器 A', 'CPU', { metricValue: 32.8 + wave * 8, metricLabel: 'CPU' })
   add('lab', '应用服务器 A', '内存', { metricValue: 56.2 + wave * 2, metricLabel: '内存' })
+  add('lab', '备用电源', '电池电量', { type: 'battery', metricValue: 18, metricLabel: '剩余电量' })
   add('lab', '应用服务器 A', '数据盘', { metricValue: 92.1, hasFault: true, statusReason: 'active_fault', faultMessage: '可用空间不足' })
   add('network', '边缘路由器 A', 'CPU / 内存', { type: 'router', metricKind: 'resources', cpuValue: 18 + wave * 6, memoryValue: 42 })
   for (const i of [1, 2]) {

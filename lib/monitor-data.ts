@@ -7,6 +7,7 @@ export const adminTypeLabels: Record<DeviceType, string> = {
   line: '线路',
   router: '网络设备',
   power: '电力设备',
+  battery: '电池',
   terminal: '终端',
 }
 

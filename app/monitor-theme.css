@@ -118,10 +118,11 @@
 /* 仪表：圆盘加一层柔和内光，异常外环更醒目 */
 .monitor-shell .gauge-face { fill: var(--gauge-disk); }
 .monitor-shell .gauge-load-track { stroke: color-mix(in oklab, var(--load) 12%, transparent); }
-.monitor-shell .is-latency .gauge-value,
-.monitor-shell .is-latency .gauge-value small { color: var(--latency-color); }
-.monitor-shell .is-latency .gauge-load-track { stroke: var(--latency-color); stroke-width: 1.6; }
-.monitor-shell .is-latency .gauge-progress path { stroke: var(--latency-color); }
+.monitor-shell :is(.is-latency, .is-battery) .gauge-value,
+.monitor-shell :is(.is-latency, .is-battery) .gauge-value small { color: var(--reading-color); }
+.monitor-shell :is(.is-latency, .is-battery) .gauge-load-track { stroke: var(--reading-color); stroke-width: 1.6; }
+.monitor-shell :is(.is-latency, .is-battery) .gauge-progress path { stroke: var(--reading-color); }
+.monitor-shell .is-battery .gauge-load-track { stroke-opacity: .35; }
 .monitor-shell .gauge-conn {
   min-width: 4ch; justify-content: center; line-height: 1;
   border-block: 1px solid color-mix(in srgb, var(--muted) 52%, transparent);
