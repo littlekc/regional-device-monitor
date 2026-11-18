@@ -199,7 +199,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
             </>
           )}
         </defs>
-        <circle className="gauge-status-ring" cx="50" cy="50" r={STATUS_RING_RADIUS} stroke={`url(#${gradientId})`} />
+        <circle className="gauge-status-ring" cx="50" cy="50" r={STATUS_RING_RADIUS} />
         <circle className="gauge-face" cx="50" cy="50" r="41" />
         {halves ? (
           (['up', 'down'] as const).map((half) => {

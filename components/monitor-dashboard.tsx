@@ -38,7 +38,7 @@ function GaugeLegend() {
         <span>流量仪表：上传在上、下载在下，连接数居中。未设置实际带宽时不显示对应的占用弧线。</span>
       </div>
       <div className="legend-key">
-        <span>状态请看徽标和外环线型：正常为细实线，异常为粗实线，离线为虚线，未知为点线。</span>
+        <span>外圈表示状态：正常为绿色细线，异常为红色粗线，允许离线为灰色虚线，未知为黄色点线。</span>
         {Object.values(statusMeta).map(({ label, tone, icon }) => (
           <span key={tone}><RoundIcon icon={icon} tone={tone} size="sm" />{label}</span>
         ))}
