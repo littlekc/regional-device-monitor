@@ -10,20 +10,17 @@
   --line-strong: rgba(130, 176, 214, .2);
   --muted: #8da2b6;
   --faint: #566c82;
-  --brand: #4cc3ff;
-  --load: #4cc3ff;
-  --load-down: #b79cff;
-  --normal: #2fd6a1;
-  --error: #ff5468;
-  --offline: #7d8b9b;
-  --unknown: #ffb84a;
   --radius: 16px;
   gap: 12px;
   background:
-    radial-gradient(ellipse 60% 36% at 12% -8%, rgba(76, 195, 255, .1), transparent 70%),
-    radial-gradient(ellipse 50% 30% at 100% 0%, rgba(183, 156, 255, .06), transparent 70%),
+    radial-gradient(ellipse 60% 36% at 12% -8%, color-mix(in oklab, var(--brand) 10%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 100% 0%, color-mix(in oklab, var(--load-down) 6%, transparent), transparent 70%),
     var(--background);
 }
+
+.monitor-shell[data-palette='harbor'] { --brand: #4cc3ff; --load-down: #b79cff; }
+.monitor-shell[data-palette='titanium'] { --load-down: #ffad67; }
+.monitor-shell[data-palette='jade'] { --brand: #42d6c2; --load-down: #7fcf9e; }
 
 /* 顶栏：品牌与操作区之间用一条渐变细线收口 */
 .monitor-shell .topbar {
@@ -31,11 +28,11 @@
 }
 .monitor-shell .topbar::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, rgba(76, 195, 255, .5), rgba(76, 195, 255, .08) 45%, transparent);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--brand) 50%, transparent), color-mix(in oklab, var(--brand) 8%, transparent) 45%, transparent);
 }
 .monitor-shell h1 {
   font-size: 22px; letter-spacing: .16em;
-  background: linear-gradient(90deg, #f2f8ff, #9fd8ff);
+  background: linear-gradient(90deg, #f2f8ff, color-mix(in oklab, var(--brand) 48%, white));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .monitor-shell .clock strong { font-size: 22px; color: #f2f8ff; }
@@ -75,19 +72,19 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 18px 40px rgba(0, 0, 0, .28);
 }
 .monitor-shell .region-panel.has-alert {
-  border-color: rgba(255, 84, 104, .5);
-  box-shadow: 0 0 0 1px rgba(255, 84, 104, .12), 0 18px 40px rgba(0, 0, 0, .28);
+  border-color: color-mix(in oklab, var(--error) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--error) 12%, transparent), 0 18px 40px rgba(0, 0, 0, .28);
 }
 .monitor-shell .region-header {
   padding: 10px 16px; gap: 12px;
-  background: linear-gradient(90deg, rgba(76, 195, 255, .09), transparent 60%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--brand) 9%, transparent), transparent 60%);
   border-bottom-color: var(--line-strong);
 }
 .monitor-shell .region-panel.has-alert .region-header {
-  background: linear-gradient(90deg, rgba(255, 84, 104, .14), transparent 60%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--error) 14%, transparent), transparent 60%);
 }
 .monitor-shell .region-panel.has-unknown:not(.has-alert) .region-header {
-  background: linear-gradient(90deg, rgba(255, 184, 74, .1), transparent 60%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--unknown) 10%, transparent), transparent 60%);
 }
 .monitor-shell .region-badge {
   width: 32px; height: 32px; border-radius: 10px; font-size: 14px;
@@ -102,7 +99,7 @@
   background: rgba(255, 255, 255, .02); color: #c9d8e6;
   font-size: 13px; font-weight: 600; letter-spacing: .04em;
 }
-.monitor-shell .device-grid { gap: 12px 6px; }
+.monitor-shell .device-grid { gap: 12px 4px; }
 
 /* 设备单元：悬停与可点击反馈 */
 .monitor-shell .device-history-trigger { border-radius: 12px; transition: background .2s; }
