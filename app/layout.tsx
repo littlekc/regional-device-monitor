@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import './monitor-theme.css'
 
 export const metadata: Metadata = {
   title: '区域设备状态监控中心',

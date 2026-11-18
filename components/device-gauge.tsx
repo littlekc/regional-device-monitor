@@ -42,9 +42,9 @@ const LOAD_RING_RADIUS = 37
 const LOAD_CIRCUMFERENCE = 2 * Math.PI * LOAD_RING_RADIUS
 
 export const palettes: { id: PaletteId; name: string; note: string; swatches: string[] }[] = [
-  { id: 'harbor', name: '港湾蓝', note: '默认 · 冷色负荷，暖色告警', swatches: ['#5cc8ec', '#56c9a0', '#ff5b69', '#f2b24a'] },
-  { id: 'titanium', name: '钛白橙', note: '高对比负荷与强调色', swatches: ['#e6eef6', '#62d2a5', '#ff5e6d', '#f3c361'] },
-  { id: 'jade', name: '玉青', note: '柔和 · 长时间值守', swatches: ['#42d6c2', '#7fcf9e', '#ff6576', '#ffd166'] },
+  { id: 'harbor', name: '港湾蓝', note: '默认 · 冷色负荷，暖色告警', swatches: ['#1b6fd0', '#0e9a69', '#d92d3a', '#c27604'] },
+  { id: 'titanium', name: '钛白橙', note: '高对比负荷与强调色', swatches: ['#2a3b52', '#5b7a96', '#e2620c', '#1d6fd6'] },
+  { id: 'jade', name: '玉青', note: '柔和 · 长时间值守', swatches: ['#0b9486', '#4c9a5e', '#d4306b', '#bd930a'] },
 ]
 
 type GaugeStatus = DeviceStatus | 'error-offline'
