@@ -343,9 +343,12 @@ export function DeviceUnit({ device, now, onHistory }: { device: SnapshotDevice;
   const className = `device-unit ${meta.tone}`
   const contents = (
     <>
-      <span className="device-name">{device.name}</span>
-      <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={description.join('，')} split={split} />
-      <span className="device-status">{caption}</span>
+      {device.type === 'battery' ? <span className="charge-value" aria-label={description.join('，')}>{reading.kind === 'value' && reading.batteryPercent !== undefined ? `${reading.value}%` : '—'}</span> : <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={description.join('，')} split={split} />}
+      <span className="readout-copy">
+        {device.deviceName && device.deviceName !== device.name && <span className="readout-host">{device.deviceName}</span>}
+        <span className="device-name">{device.name}</span>
+        <span className="device-status">{caption}</span>
+      </span>
     </>
   )
   return onHistory
