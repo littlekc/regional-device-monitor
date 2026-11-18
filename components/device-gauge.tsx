@@ -162,15 +162,24 @@ function halfArc(half: 'up' | 'down', progress: number) {
 
 const compactCount = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumSignificantDigits: 3 })
 
+function latencyColor(ms: number): string {
+  if (ms <= 20) return gaugeColors.green
+  if (ms >= 100) return gaugeColors.red
+  const lowerHalf = ms <= 60
+  const from = lowerHalf ? gaugeColors.green : gaugeColors.yellow
+  const to = lowerHalf ? gaugeColors.yellow : gaugeColors.red
+  const percent = (ms - (lowerHalf ? 20 : 60)) / 40 * 100
+  return `color-mix(in srgb, ${from}, ${to} ${percent}%)`
+}
+
 function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReading; gaugeStatus: GaugeStatus; ariaLabel: string; split?: SplitReading }) {
   const gradientId = useId()
   const BadgeIcon = statusBadgeIcon[gaugeStatus]
   const progress = reading.kind === 'value' ? reading.progress : 0
   const latency = reading.kind === 'value' ? reading.latencyMs : undefined
-  const warmth = latency === undefined ? undefined : Math.max(0, Math.min(100, (latency - 20) * 100 / 80))
   const style = {
     '--load-dash': `${LOAD_CIRCUMFERENCE * progress} ${LOAD_CIRCUMFERENCE}`,
-    ...(warmth !== undefined ? { '--latency-color': `color-mix(in srgb, #70d8ad, #ffb643 ${warmth}%)` } : {}),
+    ...(latency === undefined ? {} : { '--latency-color': latencyColor(latency) }),
   } as CSSProperties
   const traffic = split?.kind === 'traffic' ? split : undefined
   const resources = split?.kind === 'resources' ? split : undefined
@@ -214,8 +223,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
           })
         ) : (
           <>
-            <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS}
-              style={latency === undefined ? undefined : { stroke: `url(#${gradientId})` }} />
+            <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS} />
             {reading.kind === 'value' && (
               <g className="gauge-progress" mask={`url(#${gradientId}-progress)`} fill="none" strokeWidth="4.5">
                 <path d="M50 13 A37 37 0 0 1 50 87" stroke={`url(#${gradientId}-first)`} />

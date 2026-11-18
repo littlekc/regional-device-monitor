@@ -34,7 +34,7 @@ function GaugeLegend() {
       <div className="legend-key">
         <span><i className="key-load" />内环表示有量程的指标比例，中心显示读数</span>
         <span>进度从低到高依次经过绿、黄、红。</span>
-        <span>延时数字在 20 ms 及以下为绿，逐渐过渡到 100 ms 及以上的橙黄。</span>
+        <span>延时数字与内圈同色：20 ms 及以下为绿，60 ms 为黄，100 ms 及以上为红，中间连续过渡。</span>
         <span>流量仪表：上传在上、下载在下，连接数居中。未设置实际带宽时不显示对应的占用弧线。</span>
       </div>
       <div className="legend-key">

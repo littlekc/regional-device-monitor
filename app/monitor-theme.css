@@ -120,7 +120,8 @@
 .monitor-shell .gauge-load-track { stroke: color-mix(in oklab, var(--load) 12%, transparent); }
 .monitor-shell .is-latency .gauge-value,
 .monitor-shell .is-latency .gauge-value small { color: var(--latency-color); }
-.monitor-shell .is-latency .gauge-load-track { stroke-width: 1.6; }
+.monitor-shell .is-latency .gauge-load-track { stroke: var(--latency-color); stroke-width: 1.6; }
+.monitor-shell .is-latency .gauge-progress path { stroke: var(--latency-color); }
 .monitor-shell .gauge-conn {
   min-width: 4ch; justify-content: center; line-height: 1;
   border-block: 1px solid color-mix(in srgb, var(--muted) 52%, transparent);
