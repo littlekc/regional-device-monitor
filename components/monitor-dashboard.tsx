@@ -170,16 +170,8 @@ export function DashboardView({ snapshot, now = snapshot?.serverTime, failed, de
     else void document.exitFullscreen?.().catch(() => {})
   }
 
-  const healthPct = total ? Math.round((summary.normal / total) * 100) : undefined
-  let ringCursor = 0
-  const ringStops = (['normal', 'error', 'offline', 'unknown'] as const).filter((key) => summary[key] > 0).map((key) => {
-    const start = ringCursor
-    ringCursor += (summary[key] / total) * 100
-    return `var(--seg-${key}) ${start}% ${ringCursor}%`
-  })
-  const ringFill = `conic-gradient(${ringStops.length ? ringStops.join(', ') : 'var(--seg-offline) 0 100%'})`
-
   const stats = [
+    { key: 'total', label: '监控对象', value: total, tone: 'tone-brand', icon: Activity },
     { key: 'normal', label: '正常', value: summary.normal, tone: 'tone-normal', icon: CheckCircle2 },
     { key: 'error', label: '异常', value: summary.error, tone: 'tone-error', icon: AlertTriangle },
     { key: 'offline', label: '无影响离线', value: summary.offline, tone: 'tone-offline', icon: PowerOff },
@@ -196,40 +188,14 @@ export function DashboardView({ snapshot, now = snapshot?.serverTime, failed, de
         <GaugeLegend />
       </dialog>
       <DeviceHistoryDialog device={historyDevice} version={snapshot?.version} onClose={() => setSelectedId(undefined)} />
-      <aside className="rail">
+      <header className="topbar">
         <div className="brand-lockup">
           <RoundIcon icon={Wifi} tone="tone-brand" />
           <h1>区域设备状态监控中心</h1>
         </div>
-        <div className="clock">{date ? <time dateTime={date.toISOString()}><span>{dateText}</span><strong>{timeText}</strong></time> : <strong aria-label="等待服务器时间">—</strong>}</div>
-        {demo ? <span className="source-badge tone-brand"><i />演示 · 虚构数据</span> : <SourceBadge snapshot={snapshot} failed={failed} />}
-
-        <section className="health" aria-label="全局状态摘要">
-          <div
-            className="health-ring"
-            style={{ '--ring-fill': ringFill } as CSSProperties}
-            role="img"
-            aria-label={`正常 ${summary.normal}，异常 ${summary.error}，无影响离线 ${summary.offline}，状态未知 ${summary.unknown}`}
-          >
-            <div className="health-core">
-              <strong>{healthPct === undefined ? '—' : healthPct}{healthPct !== undefined && <small>%</small>}</strong>
-              <span>正常率</span>
-            </div>
-          </div>
-          <p className="health-total"><Activity size={14} aria-hidden="true" />监控对象 <b>{total}</b></p>
-          <ul className="health-list">
-            {stats.map((stat) => (
-              <li key={stat.key} className={`health-row ${stat.tone}`}>
-                <RoundIcon icon={stat.icon} tone={stat.tone} size="sm" />
-                <span className="health-label">{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <i aria-hidden="true" style={{ width: total ? `${(stat.value / total) * 100}%` : 0 }} />
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <div className="rail-actions">
+        <div className="topbar-actions">
+          <div className="clock">{date ? <time dateTime={date.toISOString()}><span>{dateText}</span><strong>{timeText}</strong></time> : <strong aria-label="等待服务器时间">—</strong>}</div>
+          {demo ? <span className="source-badge tone-brand"><i />演示 · 虚构数据</span> : <SourceBadge snapshot={snapshot} failed={failed} />}
           <button type="button" className="fullscreen-button" onClick={() => legendRef.current?.showModal()}>
             <span className="button-icon"><Palette size={13} /></span>
             仪表图例
@@ -243,17 +209,30 @@ export function DashboardView({ snapshot, now = snapshot?.serverTime, failed, de
             管理后台
           </Link>}
         </div>
-      </aside>
+      </header>
 
-      <div className="stage">
-        {total === 0 && (
-          <p className="monitor-empty" role="status">
-            {failed ? '连接监控服务失败，正在重试。' : snapshot ? '暂无监控项目' : '正在读取监控状态…'}
-          </p>
-        )}
-        <div className="zones-grid">
-          {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now ?? 0} onHistory={demo ? undefined : setSelectedId} />)}
+      <section className="summary-bar" aria-label="全局状态摘要">
+        {stats.map((stat) => (
+          <div key={stat.key} className={`summary-stat ${stat.tone}`}>
+            <RoundIcon icon={stat.icon} tone={stat.tone} size="sm" />
+            <span className="summary-label">{stat.label}</span>
+            <strong>{stat.value}</strong>
+          </div>
+        ))}
+        <div className="distribution" role="img" aria-label={`正常 ${summary.normal}，异常 ${summary.error}，无影响离线 ${summary.offline}，状态未知 ${summary.unknown}`}>
+          {(['normal', 'error', 'offline', 'unknown'] as const).map((key) => (
+            <span key={key} className={statusMeta[key].tone} style={{ flexGrow: summary[key] }} />
+          ))}
         </div>
+      </section>
+
+      {total === 0 && (
+        <p className="monitor-empty" role="status">
+          {failed ? '连接监控服务失败，正在重试。' : snapshot ? '暂无监控项目' : '正在读取监控状态…'}
+        </p>
+      )}
+      <div className="zones-grid">
+        {regions.map((region) => <RegionPanel key={region.id} region={region} devices={devicesByRegion[region.id] ?? []} now={now ?? 0} onHistory={demo ? undefined : setSelectedId} />)}
       </div>
     </main>
   )
