@@ -171,13 +171,14 @@ export class IkuaiService {
     }
     const check = unique(sample.data?.iface_check, binding.interface!)
     const stream = unique(sample.data?.iface_stream, binding.interface!)
-    // Only success is verified for this firmware. Other result codes cannot safely prove offline.
+    // Only explicit success/fail results establish link state.
     const failed = check?.result === 'fail'
     if (!failed && check?.result !== 'success') return { ...base, statusReason: check ? 'status_unmapped' : 'interface_missing' }
     const upload = number(stream?.upload); const download = number(stream?.download); const connections = number(stream?.connect_num)
     const ip = typeof stream?.ip_addr === 'string' && isIP(stream.ip_addr) && stream.ip_addr !== '0.0.0.0' ? stream.ip_addr : undefined
     return { ...base, reachable: true, statusAvailable: true, faultAvailable: true, statusReason: 'online',
-      ...(failed ? { reachable: false, hasFault: true, statusReason: 'link_check_failed' as const, faultMessage: '链路检测失败' } : {}),
+      ...(failed ? { reachable: false, hasFault: !project.allowOffline, statusReason: 'link_check_failed' as const,
+        ...(!project.allowOffline ? { faultMessage: '链路检测失败' } : {}) } : {}),
       statusClock: sample.checkedAt,
       uploadValue: upload !== undefined && Number.isFinite(upload * 8) ? upload * 8 : undefined,
       downloadValue: download !== undefined && Number.isFinite(download * 8) ? download * 8 : undefined,

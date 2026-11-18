@@ -34,6 +34,7 @@ function GaugeLegend() {
       <div className="legend-key">
         <span><i className="key-load" />内环表示有量程的指标比例，中心显示读数</span>
         <span>负载由低到高从绿色渐变到橙色。</span>
+        <span>延时读数和内圈按毫秒着色：20 ms 及以下为绿，逐渐过渡到 100 ms 及以上的橙黄。</span>
         <span>流量仪表：上传在上、下载在下，连接数居中。未设置实际带宽时不显示对应的占用弧线。</span>
       </div>
       <div className="legend-key">
@@ -114,7 +115,8 @@ function RegionPanel({ region, devices, now, onHistory }: { region: Region; devi
       </header>
       {Array.from(groups, ([key, members]) => (
         <div className="host-row" key={key}>
-          <strong className="host-name">{members.find(device => device.deviceName)?.deviceName ?? members[0].name}</strong>
+          <strong className="host-name">{(members.find(device => device.deviceName)?.deviceName ?? members[0].name)
+            .replace(/^(Zabbix|Excel|业务)(服务器)$/, '$1\n$2').replace(/^(路由器)(（[主备]）)$/, '$1\n$2')}</strong>
           <div className={key.startsWith('group:') ? 'device-grid named-group' : 'device-grid'}>
             {members.map(device => <DeviceUnit key={device.id} device={device} now={now}
               onHistory={onHistory && device.liveSource !== 'ikuai' ? () => onHistory(device.id) : undefined} />)}

@@ -66,7 +66,7 @@ export function RoundIcon({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon;
 }
 
 export type GaugeReading =
-  | { kind: 'value'; value: string; unit: string; label?: string; progress: number }
+  | { kind: 'value'; value: string; unit: string; label?: string; progress: number; latencyMs?: number }
   | TrafficReading
   | ResourceReading
   | { kind: 'online' }
@@ -123,7 +123,7 @@ export function getReading(device: SnapshotDevice, status: DeviceStatus = getDev
   const progress = max && max > 0 ? Math.min(1, Math.max(0, device.metricValue / max)) : 0
   const unit = device.metricKind === 'percent' ? '%' : device.metricUnit ?? ''
   const amount = device.metricValue
-  if (device.metricKind === 'raw' && unit === 'ms') return { kind: 'value', value: String(Math.round(amount)), unit, label: device.metricLabel, progress }
+  if (device.metricKind === 'raw' && unit === 'ms') return { kind: 'value', value: String(Math.round(amount)), unit, label: device.metricLabel, progress, latencyMs: amount }
   if (device.metricKind === 'rate') {
     const multiplier = rateMultiplier(unit)
     if (multiplier === undefined) return { kind: 'missing', label: device.metricLabel }
@@ -165,7 +165,12 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
   const gradientId = useId()
   const BadgeIcon = statusBadgeIcon[gaugeStatus]
   const progress = reading.kind === 'value' ? reading.progress : 0
-  const style = { '--load-dash': `${LOAD_CIRCUMFERENCE * progress} ${LOAD_CIRCUMFERENCE}` } as CSSProperties
+  const latency = reading.kind === 'value' ? reading.latencyMs : undefined
+  const warmth = latency === undefined ? undefined : Math.max(0, Math.min(100, (latency - 20) * 100 / 80))
+  const style = {
+    '--load-dash': `${LOAD_CIRCUMFERENCE * progress} ${LOAD_CIRCUMFERENCE}`,
+    ...(warmth !== undefined ? { '--latency-color': `color-mix(in srgb, #70d8ad, #ffb643 ${warmth}%)` } : {}),
+  } as CSSProperties
   const traffic = split?.kind === 'traffic' ? split : undefined
   const resources = split?.kind === 'resources' ? split : undefined
   const halves = resources
@@ -173,7 +178,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
     : traffic ? { up: traffic.upload, down: traffic.download } : undefined
 
   return (
-    <span className={`gauge gs-${gaugeStatus} gr-${reading.kind}`} style={style} role="img" aria-label={ariaLabel}>
+    <span className={`gauge gs-${gaugeStatus} gr-${reading.kind}${latency === undefined ? '' : ' is-latency'}`} style={style} role="img" aria-label={ariaLabel}>
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">
@@ -210,7 +215,7 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
           <>
             <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS} />
             {reading.kind === 'value' && (
-              <g mask={`url(#${gradientId}-progress)`} fill="none" strokeWidth="4.5">
+              <g className="gauge-progress" mask={`url(#${gradientId}-progress)`} fill="none" strokeWidth="4.5">
                 <path d="M50 13 A37 37 0 0 1 50 87" stroke={`url(#${gradientId}-first)`} />
                 <path d="M50 87 A37 37 0 0 1 50 13" stroke={`url(#${gradientId}-second)`} />
               </g>
@@ -292,6 +297,13 @@ export function DeviceUnit({ device, now, onHistory }: { device: SnapshotDevice;
   const meta = statusMeta[status]
   const reading = getReading(device, status)
   const statusText = getStatusText(device, status, now)
+  let caption = statusText
+  if (status === 'unknown') caption = statusReasonText[device.statusReason]
+  else if (device.statusReason === 'link_check_failed') caption = status === 'offline' ? '链路未通' : '链路异常'
+  else if (status === 'error' && device.hasFault && device.reachable) {
+    const message = device.faultMessage ?? ''
+    caption = /space is (?:critically )?low/i.test(message) ? '磁盘空间不足' : message.length > 12 || !message ? '设备故障' : message
+  }
   const clockLabel = device.clockBasis === 'received' ? ' API 接收' : '采样'
   const evidence = [
     device.liveSource === 'ikuai' ? '实时来源：爱快 API；时间为服务端接收时间' : undefined,
@@ -316,7 +328,7 @@ export function DeviceUnit({ device, now, onHistory }: { device: SnapshotDevice;
     <>
       <span className="device-name">{device.name}</span>
       <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={description.join('，')} split={split} />
-      <span className="device-status">{statusText}</span>
+      <span className="device-status">{caption}</span>
     </>
   )
   return onHistory

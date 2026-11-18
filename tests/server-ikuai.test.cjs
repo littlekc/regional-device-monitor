@@ -33,6 +33,12 @@ test('two routers using the same path and interface keep independent samples and
   assert.equal(devices[0].connections, 42)
   assert.equal(devices[1].connections, 0)
   assert.equal(devices[1].statusReason, 'link_check_failed')
+  const { getDeviceStatus } = require('../lib/monitor-data.ts')
+  assert.equal(getDeviceStatus(devices[1]), 'error')
+  const optional = service.overlay(second, { ...projects[1], allowOffline: true }, {}, samples[1])
+  assert.equal(optional.statusReason, 'link_check_failed')
+  assert.equal(getDeviceStatus(optional), 'offline')
+  assert.equal(optional.connections, 0)
 })
 const system = { sysinfo: { uptime: 120, cpu: ['32.01%', '22.45%', '34.31%'], memory: { used: '34%' } } }
 
