@@ -163,12 +163,12 @@ function halfArc(half: 'up' | 'down', progress: number) {
 const compactCount = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumSignificantDigits: 3 })
 
 function latencyColor(ms: number): string {
-  if (ms <= 20) return gaugeColors.green
-  if (ms >= 100) return gaugeColors.red
-  const lowerHalf = ms <= 60
+  if (ms <= 100) return gaugeColors.green
+  if (ms >= 500) return gaugeColors.red
+  const lowerHalf = ms <= 300
   const from = lowerHalf ? gaugeColors.green : gaugeColors.yellow
   const to = lowerHalf ? gaugeColors.yellow : gaugeColors.red
-  const percent = (ms - (lowerHalf ? 20 : 60)) / 40 * 100
+  const percent = (ms - (lowerHalf ? 100 : 300)) / 200 * 100
   return `color-mix(in srgb, ${from}, ${to} ${percent}%)`
 }
 
