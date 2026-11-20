@@ -177,7 +177,8 @@ function severityColor(level: number): string {
   return `color-mix(in srgb, ${from}, ${to} ${percent}%)`
 }
 
-const LATENCY_TICKS = Array.from({ length: 24 }, (_, index) => index * 15)
+const SEGMENT_GAP = 1.4
+const SEGMENT_PITCH = LOAD_CIRCUMFERENCE / 36
 
 function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReading; gaugeStatus: GaugeStatus; ariaLabel: string; split?: SplitReading }) {
   const gradientId = useId()
@@ -231,12 +232,9 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
             )
           })
         ) : latency !== undefined ? (
-          <g className="latency-ticks">
-            {LATENCY_TICKS.map((angle, index) => (
-              <line key={angle} className={index < Math.max(1, Math.ceil(progress * LATENCY_TICKS.length)) ? 'is-lit' : undefined}
-                x1="50" y1="11" x2="50" y2="17.5" transform={`rotate(${angle} 50 50)`} />
-            ))}
-            <circle className="latency-core" cx="50" cy="50" r="29" />
+          <g className="latency-fill">
+            <circle className="latency-disc" cx="50" cy="50" r="37" />
+            <circle className="latency-rim" cx="50" cy="50" r="32" />
           </g>
         ) : (
           <>
@@ -247,6 +245,13 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
                 <path d="M50 87 A37 37 0 0 1 50 13" stroke={`url(#${gradientId}-second)`} />
               </g>
             )}
+          </>
+        )}
+        {latency === undefined && (
+          <>
+            <circle className="gauge-segments" cx="50" cy="50" r={LOAD_RING_RADIUS}
+              strokeDasharray={`${SEGMENT_GAP} ${SEGMENT_PITCH - SEGMENT_GAP}`} transform="rotate(-90 50 50)" />
+            <circle className="gauge-inner-rim" cx="50" cy="50" r="31" />
           </>
         )}
       </svg>

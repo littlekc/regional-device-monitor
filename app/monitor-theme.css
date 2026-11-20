@@ -187,7 +187,28 @@
 .monitor-shell .host-name { background: var(--panel-raised); color: var(--foreground); font-weight: 400; }
 .monitor-shell .device-name { color: var(--foreground); }
 
-/* 延时内圈：24 格刻度按延时点亮，中心一圈细环 */
-.monitor-shell .latency-ticks line { stroke: color-mix(in oklab, var(--reading-color) 18%, transparent); stroke-width: 3; stroke-linecap: butt; }
-.monitor-shell .latency-ticks line.is-lit { stroke: var(--reading-color); }
-.monitor-shell .latency-core { fill: none; stroke: color-mix(in oklab, var(--reading-color) 35%, transparent); stroke-width: .8; stroke-dasharray: 1.5 2.5; }
+/* 内圈：负荷环切成 36 段，内侧一条细环收边 */
+.monitor-shell .gauge { --face: var(--gauge-disk); }
+.monitor-shell .gauge.gs-error,
+.monitor-shell .gauge.gs-error-offline { --face: color-mix(in oklab, var(--error) 10%, var(--gauge-disk)); }
+.monitor-shell .gauge-load-track,
+.monitor-shell .gauge-split-track,
+.monitor-shell .gauge-split { stroke-width: 6; }
+.monitor-shell .gauge-progress { stroke-width: 6; }
+.monitor-shell .gauge-load { stroke-width: 7; }
+.monitor-shell .gauge-segments { fill: none; stroke: var(--face); stroke-width: 8; }
+.monitor-shell .gauge-inner-rim { fill: none; stroke: var(--line-strong); stroke-width: .8; }
+
+/* 延时内圈：按延时颜色整体填充，数字反白为深色 */
+.monitor-shell .latency-disc { fill: var(--reading-color); transition: fill 1.4s ease-in-out; }
+.monitor-shell .latency-rim { fill: none; stroke: color-mix(in oklab, var(--background) 30%, transparent); stroke-width: .8; }
+.monitor-shell .is-latency .gauge-value,
+.monitor-shell .is-latency .gauge-value small { color: var(--background); }
+
+/* 内圈数字：参照上一版放大 */
+.monitor-shell .gauge .gauge-center .gauge-value { font-size: clamp(14px, calc(var(--gauge-size, var(--gauge-base-size)) * .23), 24px); line-height: 1; }
+.monitor-shell .gauge .gauge-center .gauge-value small { font-size: clamp(10px, calc(var(--gauge-size, var(--gauge-base-size)) * .14), 14px); }
+.monitor-shell .gauge .gauge-center .gauge-resource { font-size: clamp(12px, calc(var(--gauge-size, var(--gauge-base-size)) * .16), 17px); line-height: 1.15; }
+.monitor-shell .gauge .gauge-center .gauge-rate { font-size: clamp(11px, calc(var(--gauge-size, var(--gauge-base-size)) * .14), 15px); }
+.monitor-shell .gauge .gauge-center .gauge-conn { font-size: clamp(12px, calc(var(--gauge-size, var(--gauge-base-size)) * .16), 17px); }
+.monitor-shell .gauge .gauge-center .gauge-empty { font-size: 20px; }
