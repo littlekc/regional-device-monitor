@@ -200,10 +200,14 @@
 .monitor-shell .gauge-inner-rim { fill: none; stroke: var(--line-strong); stroke-width: .8; }
 
 /* 延时内圈：按延时颜色整体填充，数字反白为深色 */
-.monitor-shell .latency-disc { fill: var(--reading-color); transition: fill 1.4s ease-in-out; }
-.monitor-shell .latency-rim { fill: none; stroke: color-mix(in oklab, var(--background) 30%, transparent); stroke-width: .8; }
-.monitor-shell .is-latency .gauge-value,
-.monitor-shell .is-latency .gauge-value small { color: var(--background); }
+  .monitor-shell .latency-disc {
+    fill: color-mix(in oklab, var(--reading-color) 8%, transparent);
+    stroke: var(--reading-color); stroke-width: 4;
+    transition: stroke 1.4s ease-in-out, fill 1.4s ease-in-out;
+  }
+  .monitor-shell .latency-rim { fill: none; stroke: color-mix(in oklab, var(--reading-color) 35%, transparent); stroke-width: .8; stroke-dasharray: 1.5 2.5; }
+  .monitor-shell .is-latency .gauge-value,
+  .monitor-shell .is-latency .gauge-value small { color: var(--reading-color); }
 
 /* 内圈数字：参照上一版放大 */
 .monitor-shell .gauge .gauge-center .gauge-value { font-size: clamp(14px, calc(var(--gauge-size, var(--gauge-base-size)) * .23), 24px); line-height: 1; }
