@@ -52,16 +52,12 @@ function snapshot(tick: number): MonitorSnapshot {
 }
 
 export default function DemoPage() {
-  const [time, setTime] = useState<number>()
-  const [started, setStarted] = useState<number>()
+  const [tick, setTick] = useState<number | null>(null)
   useEffect(() => {
-    const initial = Date.now()
-    setStarted(initial)
-    setTime(initial)
-    const timer = window.setInterval(() => setTime(Date.now()), 1000)
+    setTick(0)
+    const timer = window.setInterval(() => setTick(value => (value ?? 0) + 1), 5000)
     return () => window.clearInterval(timer)
   }, [])
-  if (time === undefined || started === undefined) return <main className="monitor-shell" aria-busy="true">正在打开演示大屏…</main>
-  const data = snapshot(Math.floor((time - started) / 5000))
-  return <DashboardView demo snapshot={data} now={data.serverTime} displayTime={time} failed={false} />
+  if (tick === null) return <main className="monitor-shell" aria-busy="true">正在打开演示大屏…</main>
+  return <DashboardView demo snapshot={snapshot(tick)} failed={false} />
 }

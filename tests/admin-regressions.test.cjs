@@ -104,8 +104,8 @@ test('empty dashboard uses its actual configuration and contains no sample gauge
   const html = render(DashboardView, { snapshot: empty, now: 61000, failed: false })
   assert.match(html, /暂无监控项目/)
   assert.match(html, /data-palette="jade"/)
-  assert.doesNotMatch(html, /--gauge-scale:/)
-  assert.match(html, /href="\/admin\/projects"/)
+  assert.match(html, /--columns:3/)
+  assert.match(html, /--gauge-scale:1\.25/)
   assert.doesNotMatch(html, /class="device-unit|演示数据|样例/)
 })
 
@@ -221,12 +221,12 @@ test('stale status warns in the source badge without changing an unrelated onlin
   const missing = { ...online, metricValue: undefined }
   const renderDashboard = (devices) => render(DashboardView, { snapshot: { ...snapshot, devices }, now: 61000, failed: false })
   const html = renderDashboard([stale, missing])
-  assert.match(html, /class="monitor-warning"[^>]*>采集数据过期/)
+  assert.match(html, /class="source-badge tone-unknown"[^>]*>.*采集数据过期/)
   assert.match(html, /过期项目.*gs-unknown gr-unknown/)
   assert.match(html, /测试设备.*gs-normal gr-missing/)
 
   const hiddenStale = renderDashboard([{ ...stale, hidden: true }, missing])
-  assert.doesNotMatch(hiddenStale, /monitor-warning|source-badge/)
+  assert.match(hiddenStale, /class="source-badge tone-normal"[^>]*>.*Zabbix 连接正常/)
   assert.doesNotMatch(hiddenStale, /采集数据过期|过期项目/)
 })
 

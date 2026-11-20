@@ -177,6 +177,8 @@ function severityColor(level: number): string {
   return `color-mix(in srgb, ${from}, ${to} ${percent}%)`
 }
 
+const LATENCY_TICKS = Array.from({ length: 24 }, (_, index) => index * 15)
+
 function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReading; gaugeStatus: GaugeStatus; ariaLabel: string; split?: SplitReading }) {
   const gradientId = useId()
   const BadgeIcon = statusBadgeIcon[gaugeStatus]
@@ -228,6 +230,14 @@ function Gauge({ reading, gaugeStatus, ariaLabel, split }: { reading: GaugeReadi
               </g>
             )
           })
+        ) : latency !== undefined ? (
+          <g className="latency-ticks">
+            {LATENCY_TICKS.map((angle, index) => (
+              <line key={angle} className={index < Math.max(1, Math.ceil(progress * LATENCY_TICKS.length)) ? 'is-lit' : undefined}
+                x1="50" y1="11" x2="50" y2="17.5" transform={`rotate(${angle} 50 50)`} />
+            ))}
+            <circle className="latency-core" cx="50" cy="50" r="29" />
+          </g>
         ) : (
           <>
             <circle className="gauge-load-track" cx="50" cy="50" r={LOAD_RING_RADIUS} />
@@ -343,12 +353,9 @@ export function DeviceUnit({ device, now, onHistory }: { device: SnapshotDevice;
   const className = `device-unit ${meta.tone}`
   const contents = (
     <>
-      {device.type === 'battery' ? <span className="charge-value" aria-label={description.join('，')}>{reading.kind === 'value' && reading.batteryPercent !== undefined ? `${reading.value}%` : '—'}</span> : <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={description.join('，')} split={split} />}
-      <span className="readout-copy">
-        {device.deviceName && device.deviceName !== device.name && <span className="readout-host">{device.deviceName}</span>}
-        <span className="device-name">{device.name}</span>
-        <span className="device-status">{caption}</span>
-      </span>
+      <span className="device-name">{device.name}</span>
+      <Gauge reading={reading} gaugeStatus={gaugeStatus} ariaLabel={description.join('，')} split={split} />
+      <span className="device-status">{caption}</span>
     </>
   )
   return onHistory
